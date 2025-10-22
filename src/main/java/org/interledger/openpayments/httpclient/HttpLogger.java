@@ -26,7 +26,7 @@ public class HttpLogger {
     private static final String LOG_NO_BODY = "<no body>";
 
     /**
-     * Logs an HTTP request with appropriate detail level based on logger configuration.
+     * Logs an HTTP request with the appropriate detail level based on logger configuration.
      *
      * <p>Logging behavior:
      * <ul>
@@ -45,7 +45,7 @@ public class HttpLogger {
         StringBuilder logMessage = new StringBuilder();
         logMessage.append("HTTP Request:  ").append(req.method()).append(" ").append(req.uri());
 
-        if (log.isTraceEnabled()) {  // log request details only if trace level is enabled
+        if (log.isTraceEnabled()) {  // log request details only if the trace level is enabled
             logHeaders(req.headers(), logMessage);
             // define a consumer for how you want to log
             if (req.bodyPublisher().isPresent()) {
@@ -85,7 +85,7 @@ public class HttpLogger {
     }
 
     /**
-     * Logs an HTTP response with appropriate detail level based on logger configuration.
+     * Logs an HTTP response with the appropriate detail level based on logger configuration.
      *
      * <p>Logging behavior:
      * <ul>
@@ -120,7 +120,7 @@ public class HttpLogger {
 
     /**
      * A subscriber implementation for processing HTTP body data.
-     * This class is utilized internally by the HTTP logger to capture
+     * This class is used internally by the HTTP logger to capture
      * and process the body content of HTTP requests or responses.
      * The {@code HttpBodySubscriber} consumes chunks of data in the form of
      * {@code ByteBuffer} objects, converts them to UTF-8 encoded strings,
@@ -179,7 +179,7 @@ public class HttpLogger {
 
         /**
          * Called when the body streaming is complete.
-         * Currently, does not perform any completion handling.
+         * Currently, it does not perform any completion handling.
          */
         @Override
         public void onComplete() {

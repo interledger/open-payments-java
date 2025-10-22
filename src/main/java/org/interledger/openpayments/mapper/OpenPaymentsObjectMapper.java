@@ -11,7 +11,7 @@ import com.fasterxml.jackson.datatype.jsr310.deser.InstantDeserializer;
 import lombok.extern.slf4j.Slf4j;
 import org.interledger.openpayments.exception.AOpenPaymentsException;
 import org.interledger.openpayments.exception.OpenPaymentsClientException;
-import org.interledger.openpayments.model.ApiError;
+import org.interledger.openpayments.model.common.ApiError;
 
 import java.time.Instant;
 

@@ -1,11 +1,12 @@
 package org.interledger.openpayments.util;
 
 import lombok.NoArgsConstructor;
-import org.interledger.openpayments.exception.OpenPaymentsClientException;
 import org.interledger.openpayments.exception.AOpenPaymentsException;
+import org.interledger.openpayments.exception.OpenPaymentsClientException;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.Collection;
 
 import static java.util.Objects.isNull;
 
@@ -61,6 +62,20 @@ public class UtilGlobal {
      */
     public static void ensureNotNullOrEmpty(String value, String errorMessage) {
         if (isNullOrEmpty(value)) {
+            throw new OpenPaymentsClientException(errorMessage);
+        }
+    }
+
+    /**
+     * Ensures that the provided set is neither null nor empty.
+     * If the set is null or empty, an {@code OpenPaymentsClientException} is thrown with the specified error message.
+     *
+     * @param value the set to validate for null or emptiness
+     * @param errorMessage the error message to include in the exception if the validation fails
+     * @throws OpenPaymentsClientException if the provided set is null or empty
+     */
+    public static void ensureNotNullOrEmpty(Collection<?> value, String errorMessage) {
+        if (value == null || value.isEmpty()) {
             throw new OpenPaymentsClientException(errorMessage);
         }
     }

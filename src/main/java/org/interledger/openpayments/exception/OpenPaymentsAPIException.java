@@ -1,7 +1,7 @@
 package org.interledger.openpayments.exception;
 
 import lombok.Getter;
-import org.interledger.openpayments.model.ApiError;
+import org.interledger.openpayments.model.common.ApiError;
 
 import java.io.Serial;
 import java.net.http.HttpHeaders;
@@ -22,78 +22,10 @@ public class OpenPaymentsAPIException extends AOpenPaymentsException {
     private HttpHeaders responseHeaders = null;
     private String responseBody = null;
 
-    /**
-     * Constructs a new OpenPaymentsAPIException with the specified error message, cause, HTTP status code,
-     * response headers, and response body.
-     * @param message         the error message describing the exception
-     * @param throwable       the underlying cause of the exception
-     * @param code            the HTTP status code associated with the exception
-     * @param responseHeaders the HTTP response headers returned by the server
-     * @param responseBody    the HTTP response body as a string
-     */
-    public OpenPaymentsAPIException(
-            String message,
-            Throwable throwable,
-            int code,
-            HttpHeaders responseHeaders,
-            String responseBody
-    ) {
-        super(code, message, throwable);
-        this.responseHeaders = responseHeaders;
-        this.responseBody = responseBody;
-    }
-
-    /**
-     * Constructs a new OpenPaymentsAPIException with the specified error message, HTTP status code,
-     * response headers, and response body.
-     *
-     * @param message         the error message describing the exception
-     * @param code            the HTTP status code associated with the exception
-     * @param responseHeaders the HTTP response headers returned by the server
-     * @param responseBody    the HTTP response body as a string
-     */
-    public OpenPaymentsAPIException(
-            String message,
-            int code,
-            HttpHeaders responseHeaders,
-            String responseBody
-    ) {
-        this(message, null, code, responseHeaders, responseBody);
-    }
-
-    /**
-     * Constructs a new OpenPaymentsAPIException with the specified error message, cause, HTTP status code,
-     * and response headers.
-     *
-     * @param message         the error message describing the exception
-     * @param throwable       the underlying cause of the exception
-     * @param code            the HTTP status code associated with the exception
-     * @param responseHeaders the HTTP response headers returned by the server
-     */
-    public OpenPaymentsAPIException(String message, Throwable throwable, int code, HttpHeaders responseHeaders) {
-        this(message, throwable, code, responseHeaders, null);
-    }
-
-    /**
-     * Constructs a new OpenPaymentsAPIException with the specified HTTP status code,
-     * response headers, and response body.
-     *
-     * @param code            the HTTP status code associated with this exception
-     * @param responseHeaders the HTTP response headers returned by the server
-     * @param responseBody    the HTTP response body as a string
-     */
-    public OpenPaymentsAPIException(int code, HttpHeaders responseHeaders, String responseBody) {
-        this(null, null, code, responseHeaders, responseBody);
-    }
-
     public OpenPaymentsAPIException(int code, String message) {
         super(code, message);
     }
-
-    public OpenPaymentsAPIException(int code, String message, Throwable cause) {
-        super(code, message, cause);
-    }
-
+    
     /**
      * Constructs a new InterledgerClientException with an HTTP status code, error message,
      * response headers, and response body.

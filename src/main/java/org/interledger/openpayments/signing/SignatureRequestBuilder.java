@@ -25,7 +25,6 @@ import static org.interledger.openpayments.util.UtilGlobal.ensureTrue;
  * signed HTTP requests that ensure authenticity and integrity when communicating with
  * Interledger Open Payments servers. All requests are signed using Ed25519 cryptographic
  * signatures.
- *
  */
 @Getter
 public class SignatureRequestBuilder {
@@ -71,6 +70,12 @@ public class SignatureRequestBuilder {
         this.mapper = mapper == null ? new OpenPaymentsObjectMapper() : mapper;
     }
 
+    /**
+     * Constructs a new SignatureRequestBuilder with the specified private key and key identifier.
+     *
+     * @param privateKey the private key used for signing
+     * @param keyId the identifier of the key
+     */
     public SignatureRequestBuilder(PrivateKey privateKey, String keyId) {
         this(privateKey, keyId, null);
     }
@@ -252,25 +257,68 @@ public class SignatureRequestBuilder {
         return this;
     }
 
+    /**
+     * Prepares a token by appending it to a predefined prefix.
+     *
+     * @param token the input string token to be formatted
+     * @return the formatted token with the prefix "GNAP "
+     */
     private String prepareToken(String token) {
         return String.format("GNAP %s", token);
     }
 
+    /**
+     * Calculates the length of the given content in bytes using UTF-8 encoding
+     * and stores it in the parameters map with a header key.
+     *
+     * @param content the string content whose byte length is to be calculated
+     */
     private void length(String content) {
         int contentLength = content.getBytes(StandardCharsets.UTF_8).length;
         parameters.put(CONTENT_LENGTH_HEADER, contentLength);
     }
 
+    /**
+     * Computes a SHA-512 digest for the provided value and updates the
+     * parameters map with the generated digest header. If the digest
+     * computation fails, an exception is thrown.
+     *
+     * @param value the input string to be hashed and used for generating
+     *              the digest header
+     * @throws IllegalArgumentException if an error occurs while computing
+     *                                  the digest for the provided value
+     */
     private void digest(String value) {
         try {
-            String digest = digestContentSha512(value);
-            String digestHeader = String.format("%s=:%s:", DIGEST_ALGORITHM.toLowerCase(), digest);
+            var digest = digestContentSha512(value);
+            var digestHeader = String.format("%s=:%s:", DIGEST_ALGORITHM.toLowerCase(), digest);
             parameters.put(CONTENT_DIGEST_HEADER, digestHeader);
         } catch (Exception e) {
             throw new IllegalArgumentException(String.format("Failed to calculate %s digest for: '%s'.", DIGEST_ALGORITHM, value), e);
         }
     }
 
+    /**
+     * Constructs and sets the signature parameters required for a secure communication.
+     * The method ensures that the required 'created' timestamp is set before proceeding.
+     * It gathers the existing parameters, formats them into quoted lower-case strings,
+     * and organizes these values into a standardized format. The generated signature
+     * parameters are then added to the parameters map under a predefined key.
+     *
+     * Preconditions:
+     * - The 'created' timestamp must be set to a value greater than 0.
+     * - The 'parameters' map and 'keyId' must be initialized prior to calling this method.
+     *
+     * Postconditions:
+     * - The 'SIGNATURE_PARAMS' key in the parameters map will be updated with a new
+     *   signature parameter string.
+     *
+     * Throws:
+     * - IllegalStateException if the 'created' timestamp value is not greater than 0.
+     *
+     * Side Effects:
+     * - Modifies the 'parameters' map by adding or updating the 'SIGNATURE_PARAMS' entry.
+     */
     void setSignatureParams() {
         ensureTrue(created > 0, "Created timestamp must be set before calculating signature params!");
 
@@ -329,6 +377,11 @@ public class SignatureRequestBuilder {
         return out;
     }
 
+    /**
+     * Retrieves the target URI from the parameters after ensuring the required parameter exists.
+     *
+     * @return the target URI as a {@link URI} object
+     */
     public URI getTarget() {
         checkHasParameter(TARGET);
         return URI.create(parameters.get(TARGET).toString());
@@ -350,20 +403,50 @@ public class SignatureRequestBuilder {
         return String.format("%s=%s", DEFAULT_SIGNATURE_ID, signatureParams);
     }
 
+    /**
+     * Validates whether the signature has been properly built by ensuring the necessary parameters are present.
+     * If the required signature parameters are not found, an IllegalStateException is thrown to indicate
+     * that the signature has not been built and it is not ready for retrieval.
+     * Throws:
+     * - IllegalStateException if the signature parameters are missing, indicating that the build process has not been completed.
+     */
     private void checkIsBuild() {
         if (parameters.get(SIGNATURE_PARAMS) == null) {
             throw new IllegalStateException("Signature must be build before retrieval of signature params header!");
         }
     }
 
+    /**
+     * Checks if the specified parameter key exists in the parameters map. Throws an exception if the key is not found.
+     * @param key the parameter key to check for existence
+     */
     private void checkHasParameter(String key) {
         ensureTrue(parameters.containsKey(key), String.format("Parameter '%s' must be set before continuing!", key));
     }
 
+    /**
+     * Validates whether the METHOD parameter in the parameters map is null.
+     * If the METHOD parameter is already set, this method throws an exception with
+     * an error message indicating that the method has already been set.
+     *
+     * This function ensures that the METHOD parameter is not being redefined,
+     * helping maintain consistency and preventing unintended reassignments.
+     *
+     * Throws:
+     * - IllegalStateException: If the METHOD parameter in the parameters map is already set.
+     */
     private void checkMethod() {
         ensureTrue(parameters.get(METHOD) == null, String.format("Method '%s' already set!", parameters.get(METHOD)));
     }
 
+    /**
+     * Constructs and returns a string representation of the signature base by iterating over
+     * the parameters map and appending key-value pairs. The keys are converted to lowercase
+     * as required by certain header standards, and entries are separated by a newline character.
+     *
+     * @return a string representation of the signature base comprising key-value pairs from
+     *         the parameters map, where keys are in lowercase and pairs are separated by newlines
+     */
     protected String getSignatureBase() {
         this.checkIsBuild();
         StringBuilder signatureBase = new StringBuilder();
@@ -380,6 +463,13 @@ public class SignatureRequestBuilder {
         return signatureBase.toString();
     }
 
+    /**
+     * Generates a SHA-512 digest of the provided content and returns it as a Base64-encoded string.
+     *
+     * @param content the input string to be hashed; must not be null or empty
+     * @return the Base64-encoded string of the SHA-512 hash of the input content
+     * @throws NoSuchAlgorithmException if the SHA-512 algorithm is not available in the environment
+     */
     protected static String digestContentSha512(String content) throws NoSuchAlgorithmException {
         UtilGlobal.ensureNotNullOrEmpty(content, "Content must not be null or empty!");
 
@@ -488,7 +578,7 @@ public class SignatureRequestBuilder {
             builder.method(getMethod(), HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8));
         }
 
-        builder.timeout(Duration.of(options.timeOutInSeconds, SECONDS));
+        builder.timeout(Duration.of(options.getTimeOutInSeconds(), SECONDS));
         return builder;
     }
 }

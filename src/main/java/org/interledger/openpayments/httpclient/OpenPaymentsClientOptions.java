@@ -1,30 +1,35 @@
 package org.interledger.openpayments.httpclient;
 
+import lombok.Getter;
+
 /**
  * Configuration options for the OpenPaymentsClient.
  * Provides adjustable time settings to control connection, read timeout,
  * and transaction expiration durations.
  */
+@Getter
 public class OpenPaymentsClientOptions {
     /**
      * Specifies the maximum duration, in seconds, the client will wait while
      * attempting to establish a connection to the server before timing out.
      * Ensures failed connection attempts do not block operations indefinitely.
      */
-    public final int connectTimeOutInSeconds;
+    private final int connectTimeOutInSeconds;
+
     /**
      * Defines the maximum total duration, in seconds, the client will wait for
      * a request to complete, including connection establishment, request
      * transmission, server processing, and response reception.
      * Prevents indefinite waiting during extended network operations or server delays.
      */
-    public final int timeOutInSeconds;
+    private final int timeOutInSeconds;
+
     /**
      * Specifies the duration, in seconds, after which a transaction will
      * be considered expired if it is not completed. This duration helps ensure
      * transactions do not remain active indefinitely without resolution.
      */
-    public final int transactionExpirationInSeconds;
+    private final int transactionExpirationInSeconds;
 
     /**
      * Constructs an instance of {@code OpenPaymentsClientOptions} with specified timeout
