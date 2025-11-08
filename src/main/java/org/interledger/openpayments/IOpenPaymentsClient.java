@@ -1,0 +1,155 @@
+package org.interledger.openpayments;
+
+import org.interledger.openpayments.model.grant.Grant;
+import org.interledger.openpayments.model.incomingpayment.IncomingPayment;
+import org.interledger.openpayments.model.outgoingpayment.OutgoingPayment;
+import org.interledger.openpayments.model.payment.Payment;
+import org.interledger.openpayments.model.quote.Quote;
+import org.interledger.openpayments.model.walletaddress.WalletAddress;
+
+import java.math.BigDecimal;
+import java.net.URI;
+
+/**
+ * Interledger Open Payments Client.
+ * IOpenPaymentsClient is an interface that defines methods for interacting
+ * with Open Payments services. It provides functionality for retrieving
+ * wallet information associated with a specific URL.
+ * Implementing classes represent the client-side interaction mechanism,
+ * enabling secure and streamlined communication with Open Payments-enabled
+ * servers.
+ */
+public interface IOpenPaymentsClient {
+    /**
+     * Retrieves the wallet address associated with the specified URL.
+     * The wallet address provides a secure identifier and acts as a service
+     * endpoint for APIs to interact with the corresponding account.
+     *
+     * @param url the URL associated with the desired wallet address
+     * @return the wallet address corresponding to the provided URL
+     */
+    WalletAddress getWalletAddress(String url);
+
+    /**
+     * Creates a grant for incoming payment using the given wallet address.
+     * This method interacts with the Open Payments-enabled server to generate
+     * an access grant, allowing the client to receive incoming payments.
+     *
+     * @param receiver the wallet address for which the grant is to be created;
+     *                it represents a secure, sharable identifier linked to the
+     *                specific Open Payments account
+     * @return a Grant object containing the access credentials, including the
+     *         access token and optional continuation details, for interacting
+     *         with the server
+     */
+    Grant createGrantIncomingPayment(WalletAddress receiver);
+
+    /**
+     * Creates an incoming payment for the specified receiver with the given grant
+     * and amount. This method sets up a payment destination where senders can make
+     * payments to the receiver's wallet.
+     *
+     * @param receiver the wallet address of the payment receiver. This identifies the
+     *                 destination account for the incoming payment.
+     * @param ipGrant  the grant that authorizes the creation of the incoming payment.
+     *                 It provides access credentials for interacting with the receiver's
+     *                 payment endpoint.
+     * @param amount   the amount expected to be received for this payment. This
+     *                 represents the total target amount that the sender is
+     *                 expected to pay.
+     * @return an IncomingPayment object representing the created payment request. It
+     *         contains details such as payment identifier, current status, and
+     *         associated metadata.
+     */
+    IncomingPayment createIncomingPayment(WalletAddress receiver, Grant ipGrant, BigDecimal amount);
+
+    /**
+     * Creates a grant for quoting payments using the given wallet address.
+     * This method interacts with the Open Payments-enabled server to generate
+     * an access grant, allowing the client to perform a payment quote operation.
+     *
+     * @param sender the wallet address representing the source of the payment.
+     *               It identifies the payment sender's account and is used to
+     *               generate the associated grant.
+     * @return a Grant object containing the access credentials, including the
+     *         access token and optional continuation details, for quoting payments
+     *         on behalf of the sender.
+     */
+    Grant createGrantQuote(WalletAddress sender);
+
+    /**
+     * Creates a payment quote for a specified sender and incoming payment.
+     * The payment quote provides the necessary details about a payment, such as
+     * conversion rates, fees, and payment terms associated with the given
+     * quote token, sender, and the incoming payment.
+     *
+     * @param quoteToken a unique token representing the quote request. This token
+     *                   is used to identify and secure the quote creation process.
+     * @param sender the wallet address of the payment sender. This identifies the
+     *               account initiating the payment and provides the context for
+     *               the quote transaction.
+     * @param incomingPayment an object representing the pre-configured incoming
+     *                        payment details for which the quote is being created.
+     *                        This includes information such as payment amount,
+     *                        recipient details, and associated metadata.
+     * @return a Quote object containing the details of the created payment quote.
+     *         It includes information such as the quoted payment amount, currency
+     *         details, expiration time, and any applicable terms or fees.
+     */
+    Quote createQuote(String quoteToken, WalletAddress sender, IncomingPayment incomingPayment);
+
+    /**
+     * Creates a continuation grant for an outgoing payment request.
+     * This method produces an authorization grant that can be used to continue
+     * the process of an outgoing payment after the initial interaction.
+     *
+     * @param sender the wallet address of the payment sender. This identifies the
+     *               account initiating the outgoing payment request.
+     * @param quote the payment quote that includes details such as payment
+     *              amount, currency, and associated metadata. The quote provides
+     *              context to the outgoing payment.
+     * @param returnUrl the URI to which the user will be redirected after
+     *                  completing the interaction required for the outgoing
+     *                  payment grant.
+     * @param nonce a unique identifier to prevent replay attacks and ensure
+     *              request integrity. It serves as part of the grant continuation
+     *              process.
+     *
+     * @return an OutgoingPayment object containing the details of the continuation
+     *         grant. This includes the continuation information, optional user
+     *         interaction details, or an access token based on the authorization
+     *         flow.
+     */
+    OutgoingPayment createGrantContinuation(WalletAddress sender, Quote quote, URI returnUrl, String nonce);
+
+    /**
+     * Finalizes the process for creating a grant associated with an outgoing payment.
+     * This method completes the authorization flow for an outgoing payment by
+     * using the provided outgoing payment details and interaction reference.
+     *
+     * @param outgoingPayment the outgoing payment for which the grant is to be finalized.
+     *                        This contains the details and context of the outgoing payment
+     *                        authorization process.
+     * @param interactRef the interaction reference identifier used to complete the
+     *                    authorization flow. This is typically provided during the
+     *                    preceding steps of the authorization process.
+     * @return a Grant object representing the finalized access credentials, including
+     *         the access token and any continuation details for the outgoing payment.
+     */
+    Grant createGrantFinalize(OutgoingPayment outgoingPayment, String interactRef);
+
+    /**
+     * Finalizes and processes an outgoing payment using the given grant, sender's wallet, and payment quote.
+     * This method completes the payment transaction based on the pre-established quote and authorization grant.
+     *
+     * @param finalized the finalized grant object representing the authorization to perform the payment.
+     *                  This grant includes the necessary access credentials and authorization details.
+     * @param sender the wallet address of the payment sender. It identifies the account initiating
+     *                     the payment process.
+     * @param quote the payment quote object containing details of the payment, such as the quoted amount,
+     *              currency, terms, and associated fees.
+     * @return a Payment object representing the completed payment transaction. It provides details such as
+     *         the transaction status, identifier, and associated metadata.
+     */
+    Payment createFinalizePayment(Grant finalized, WalletAddress sender, Quote quote);
+}
