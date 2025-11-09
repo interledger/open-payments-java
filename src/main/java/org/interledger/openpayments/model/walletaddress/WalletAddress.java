@@ -101,6 +101,14 @@ public class WalletAddress {
     private String resourceServer;
 
     /**
+     * Represents the card service associated with the WalletAddress.
+     * This field is typically used to specify or identify the service
+     * that manages or interacts with payment cards linked to the wallet.
+     */
+    @JsonProperty("cardService")
+    private String cardService;
+
+    /**
      * Converts the `id` field of the WalletAddress into a URI representation.
      * @return a URI created from the value of the `id` field
      */
@@ -117,5 +125,14 @@ public class WalletAddress {
     @JsonIgnore
     public URI getResourceServerAsURI() {
         return URI.create(this.resourceServer);
+    }
+
+    /**
+     * Converts the `cardService` field of the WalletAddress into a URI representation.
+     * @return a URI created from the value of the `cardService` field
+     */
+    @JsonIgnore
+    public URI getCardServiceAsURI() {
+        return URI.create(this.cardService);
     }
 }

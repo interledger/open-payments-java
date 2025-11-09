@@ -152,4 +152,18 @@ public interface IOpenPaymentsClient {
      *         the transaction status, identifier, and associated metadata.
      */
     Payment createFinalizePayment(Grant finalized, WalletAddress sender, Quote quote);
+
+    /**
+     * Retrieves the current status of an incoming payment.
+     * <p>This method is used to monitor payment completion and track the received amount.
+     * It can be called multiple times to poll for payment status updates until the
+     * payment is marked as completed.
+     *
+     * @param incomingPayment the incoming payment to check
+     * @param grantRequest the access grant that provides permission to read the payment
+     * @return current payment status including completion state and received amount
+     * @see IncomingPayment
+     * @see Grant
+     */
+    IncomingPayment getIncomingPayment(IncomingPayment incomingPayment, Grant grantRequest);
 }

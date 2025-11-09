@@ -118,6 +118,7 @@ dependencies {
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
     integrationTestRuntimeOnly 'org.junit.platform:junit-platform-launcher'
     integrationTestCompileOnly "org.projectlombok:lombok:${lombokVersion}"
+    integrationTestAnnotationProcessor "org.projectlombok:lombok:${lombokVersion}"
 }
 
 publishing {

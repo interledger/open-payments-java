@@ -120,7 +120,7 @@ public class OpenPaymentsHttpClient implements IOpenPaymentsClient {
         ensureNotNullOrEmpty(receiver.getAuthServer(), "AuthServer cannot be empty");
 
         var accessRequest = GrantRequest.build(
-                clientWallet,
+                this.clientWallet,
                 AccessItemType.incomingPayment,
                 Set.of(AccessAction.read, AccessAction.complete, AccessAction.create)
         );
@@ -152,18 +152,17 @@ public class OpenPaymentsHttpClient implements IOpenPaymentsClient {
         ensureNotNull(ipGrant, "Grant for incomingPayment cannot be null");
         ensureNotNull(amount, "BigDecimal amount cannot be null");
 
-        log.debug("createIncomingPayment: {} for: {}", receiver, amount);
-
         var paymentRequest = PaymentRequest.build(
                 receiver,
                 amount,
                 this.options.getTransactionExpirationInSeconds()
         );
 
+        var resourceServer = receiver.getResourceServerAsURI();
         var request = new SignatureRequestBuilder(this.privateKey, this.keyId, this.mapper)
                 .POST(paymentRequest)
-                .target(this.buildResourceUrl(receiver.getResourceServerAsURI(), "/incoming-payments"))
-                .accessToken(extractAccessToken(ipGrant))
+                .target(this.buildResourceUrl(resourceServer, "/incoming-payments"))
+                .accessToken(this.extractAccessToken(ipGrant))
                 .getRequest(this.options);
 
         return send(request, IncomingPayment.class);
@@ -302,6 +301,28 @@ public class OpenPaymentsHttpClient implements IOpenPaymentsClient {
     }
 
     /**
+     * Retrieves an incoming payment based on the provided payment details and grant.
+     *
+     * @param payment the {@code IncomingPayment} object containing the payment details; must not be null
+     * @param grant the {@code Grant} object representing the access grant; must not be null
+     * @return the {@code IncomingPayment} object fetched from the server based on the given payment details
+     */
+    @Override
+    public IncomingPayment getIncomingPayment(IncomingPayment payment, Grant grant) {
+        log.debug("getIncomingPayment: {}", payment);
+        UtilGlobal.ensureNotNull(payment, "IncomingPayment cannot be null");
+        UtilGlobal.ensureNotNull(grant, "Grant cannot be null");
+
+        var request = new SignatureRequestBuilder(this.privateKey, this.keyId, this.mapper)
+                .GET()
+                .target(payment.getId())
+                .accessToken(extractAccessToken(grant))
+                .getRequest(this.options);
+
+        return this.send(request, IncomingPayment.class);
+    }
+
+    /**
      * Sends an HTTP request and processes the response, including deserialization into the specified type.
      * The method logs the request and response, handles HTTP errors, and attempts to deserialize
      * the response body into the provided response type. It throws exceptions if an error occurs
@@ -359,18 +380,22 @@ public class OpenPaymentsHttpClient implements IOpenPaymentsClient {
     }
 
     /**
-     * Safely builds a resource URL by appending a path to a base URI
+     * Constructs a complete resource URI by concatenating the given base URI and path.
+     * This method ensures the proper formatting of the path and combines it with the
+     * base URI to form a valid URI string.
      *
-     * @param baseUri the base URI
-     * @param path    the path to append (should start with / or will be prepended)
-     * @return the constructed URI
-     * @throws IllegalArgumentException if baseUri or path is null
+     * @param baseUri the base URI that serves as the starting point for the resource URL;
+     *                must not be null
+     * @param path the additional path to append to the base URI; must not be null
+     * @return the resulting URI formed by combining the base URI with the provided path
+     * @throws IllegalArgumentException if either {@code baseUri} or {@code path} is null
      */
     private URI buildResourceUrl(URI baseUri, String path) {
         ensureNotNull(baseUri, "Base URI cannot be null");
         ensureNotNull(path, "Path cannot be null");
-        String normalizedPath = path.startsWith("/") ? path : "/" + path;
-        return baseUri.resolve(normalizedPath);
+        var normalizedPath = path.startsWith("/") ? path : "/" + path;
+        var resolved = baseUri.toString().concat(normalizedPath);
+        return URI.create(resolved);
     }
 
     /**

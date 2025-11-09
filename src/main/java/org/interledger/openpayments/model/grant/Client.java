@@ -1,7 +1,8 @@
 package org.interledger.openpayments.model.grant;
 
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import lombok.Data;
-import lombok.ToString;
+import org.interledger.openpayments.mapper.ClientSerializer;
 
 import java.net.URI;
 
@@ -29,8 +30,8 @@ import static org.interledger.openpayments.util.UtilGlobal.ensureNotNullOrEmpty;
  * <p>This class is immutable and thread-safe. The wallet address is validated
  * during construction to ensure it's a valid URI.
  */
-@ToString
 @Data
+@JsonSerialize(using = ClientSerializer.class)
 public class Client {
     /**
      * The URI representing the wallet address.
@@ -56,7 +57,7 @@ public class Client {
      * @throws IllegalArgumentException if the address is not a valid URI format
      */
     public Client(String address) {
-        ensureNotNullOrEmpty(address, "address cannot be null or empty.");
+        ensureNotNullOrEmpty(address, "paymentPointer cannot be null or empty.");
         this.paymentPointer = URI.create(address);
     }
 
@@ -71,7 +72,7 @@ public class Client {
      * @throws IllegalArgumentException if the address is null
      */
     public Client(URI address) {
-        ensureNotNull(address, "address cannot be null.");
+        ensureNotNull(address, "paymentPointer cannot be null.");
         this.paymentPointer = address;
     }
 }
