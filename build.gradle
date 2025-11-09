@@ -103,6 +103,7 @@ dependencies {
     //TODO implementation 'com.google.code.findbugs:jsr305:3.0.2'
 
     // Unit tests
+    testCompileOnly "org.projectlombok:lombok:${lombokVersion}"
     testImplementation "org.junit.jupiter:junit-jupiter-api:${junitVersion}"
     testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:${junitVersion}"
     testImplementation "ch.qos.logback:logback-classic:${logbackClassicVersion}"
@@ -116,6 +117,7 @@ dependencies {
     // Needed for Gradle 9.0
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
     integrationTestRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    integrationTestCompileOnly "org.projectlombok:lombok:${lombokVersion}"
 }
 
 publishing {

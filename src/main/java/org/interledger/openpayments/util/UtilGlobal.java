@@ -6,6 +6,12 @@ import org.interledger.openpayments.exception.OpenPaymentsClientException;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.security.KeyFactory;
+import java.security.NoSuchAlgorithmException;
+import java.security.PrivateKey;
+import java.security.spec.InvalidKeySpecException;
+import java.security.spec.PKCS8EncodedKeySpec;
+import java.util.Base64;
 import java.util.Collection;
 
 import static java.util.Objects.isNull;
@@ -17,6 +23,10 @@ import static java.util.Objects.isNull;
  */
 @NoArgsConstructor
 public class UtilGlobal {
+    public static final String EMPTY = "";
+    private static final String PEM_PVT_HEAD = "-----BEGIN PRIVATE KEY-----";
+    private static final String PEM_PVT_FOOT = "-----END PRIVATE KEY-----";
+    private static final String REG_EX_SPACES = "\\s";
 
     /**
      * Checks if the given string is null or empty after trimming whitespace.
@@ -105,6 +115,51 @@ public class UtilGlobal {
     public static void ensureTrue(boolean value, String errorMessage) {
         if (!value) {
             throw new OpenPaymentsClientException(errorMessage);
+        }
+    }
+
+    /**
+     * Extracts a private key from a PEM-formatted string.
+     *
+     * This method removes the PEM header and footer, decodes the Base64-encoded content,
+     * and converts it into a {@code PrivateKey} object using the Ed25519 algorithm.
+     *
+     * @param privateKeyPem the PEM-formatted string containing the private key
+     * @return a {@code PrivateKey} object representing the extracted private key
+     */
+    public static PrivateKey getPrivateKeyFromPem(
+            String privateKeyPem
+    ) {
+        if (isNullOrEmpty(privateKeyPem)) throw new OpenPaymentsClientException(
+                AOpenPaymentsException.Code.PRE_CONDITION_FAILED, "PrivateKey cannot be null or empty!"
+        );
+
+        // Remove PEM headers and decode Base64
+        var privateKeyBase64 = privateKeyPem
+                .replace(PEM_PVT_HEAD, EMPTY)
+                .replace(PEM_PVT_FOOT, EMPTY)
+                .replaceAll(REG_EX_SPACES, EMPTY);
+
+        var keyBytes = Base64.getDecoder().decode(privateKeyBase64);
+        KeyFactory keyFactory = null;
+        try {
+            keyFactory = KeyFactory.getInstance("Ed25519");
+        } catch (NoSuchAlgorithmException noSuch) {
+            throw new OpenPaymentsClientException(
+                    AOpenPaymentsException.Code.PRE_CONDITION_FAILED,
+                    "Algo [Ed25519] not supported. "+noSuch.getMessage(),
+                    noSuch
+            );
+        }
+        var keySpec = new PKCS8EncodedKeySpec(keyBytes);
+        try {
+            return keyFactory.generatePrivate(keySpec);
+        } catch (InvalidKeySpecException inValidKeySpec) {
+            throw new OpenPaymentsClientException(
+                    AOpenPaymentsException.Code.PRE_CONDITION_FAILED,
+                    "Key spec not [PKCS8] encoded. "+inValidKeySpec.getMessage(),
+                    inValidKeySpec
+            );
         }
     }
 }

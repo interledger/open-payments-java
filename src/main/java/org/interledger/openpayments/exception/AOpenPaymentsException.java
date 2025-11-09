@@ -36,6 +36,7 @@ public abstract class AOpenPaymentsException extends RuntimeException {
         public static final int INTERRUPTED = -101;
         public static final int IO_ERROR = -100;
         public static final int BAD_REQUEST = 400;
+        public static final int PRE_CONDITION_FAILED = 412;
     }
 
     /**
