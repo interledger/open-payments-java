@@ -42,7 +42,7 @@ public class HttpLogger {
      */
     public void logRequest(HttpRequest req) {
         ensureNotNull(req, "HTTP request must not be null");
-        StringBuilder logMessage = new StringBuilder();
+        var logMessage = new StringBuilder();
         logMessage.append("HTTP Request:  ").append(req.method()).append(" ").append(req.uri());
 
         if (log.isTraceEnabled()) {  // log request details only if the trace level is enabled
@@ -101,7 +101,8 @@ public class HttpLogger {
      */
     public void logResponse(HttpResponse<String> res) {
         ensureNotNull(res, "HTTP response must not be null");
-        StringBuilder logMessage = new StringBuilder();
+
+        var logMessage = new StringBuilder();
         logMessage.append("HTTP Response: ").append(res.statusCode()).append(" ").append(res.uri());
         if (log.isTraceEnabled()) {
             logHeaders(res.headers(), logMessage);
