@@ -40,8 +40,13 @@ public class OpenPaymentsObjectMapper {
      * - An unwrapMapper configured specifically to enable root value unwrapping during deserialization.
      */
     public OpenPaymentsObjectMapper() {
-        this.mapper = get();
-        this.unwrapMapper = getUnwrapMapper();
+        this(get(), getUnwrapMapper());
+    }
+
+    // Added for testing
+    OpenPaymentsObjectMapper(ObjectMapper mapper, ObjectMapper unwrapMapper) {
+        this.mapper = mapper;
+        this.unwrapMapper = unwrapMapper;
     }
 
     /**

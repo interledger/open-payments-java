@@ -1,0 +1,203 @@
+package org.interledger.openpayments.httpclient;
+
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
+import org.interledger.openpayments.exception.OpenPaymentsAPIException;
+import org.interledger.openpayments.exception.OpenPaymentsClientException;
+import org.interledger.openpayments.model.common.ApiError;
+import org.interledger.openpayments.model.grant.Client;
+import org.interledger.openpayments.model.grant.Grant;
+import org.interledger.openpayments.model.incomingpayment.IncomingPayment;
+import org.interledger.openpayments.model.outgoingpayment.OutgoingPayment;
+import org.interledger.openpayments.model.payment.Payment;
+import org.interledger.openpayments.model.quote.Quote;
+import org.interledger.openpayments.model.walletaddress.WalletAddress;
+import org.interledger.openpayments.util.testing.Person;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.math.BigDecimal;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.security.NoSuchAlgorithmException;
+import java.util.function.Supplier;
+import java.util.stream.Stream;
+
+import static org.interledger.openpayments.exception.AOpenPaymentsException.Code.INTERRUPTED;
+import static org.interledger.openpayments.exception.AOpenPaymentsException.Code.IO_ERROR;
+import static org.interledger.openpayments.util.testing.TestKeys.generatePrivateKey;
+import static org.interledger.openpayments.util.testing.TestModels.*;
+import static org.interledger.openpayments.util.testing.TestResponse.createResponse;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+@ExtendWith(MockitoExtension.class)
+public class OpenPaymentsHttpClientTest {
+    @Mock
+    private static HttpClient httpClient;
+    @Mock
+    private static Client clientWallet;
+    @Mock
+    private HttpLogger httpLogger;
+    private ListAppender<ILoggingEvent> appender;
+    private static OpenPaymentsHttpClient opClient;
+    private static WalletAddress walletAddress;
+    private static Grant grantForIncomingPayment;
+    private static Grant grantForQuote;
+    private static IncomingPayment incomingPayment;
+    private static Quote quote;
+    private static OutgoingPayment outgoingPayment;
+    private static Payment payment;
+
+    @BeforeEach
+    void setUp() throws NoSuchAlgorithmException {
+        var privateKey = generatePrivateKey();
+        opClient = new OpenPaymentsHttpClient(clientWallet, privateKey, "keyId", OpenPaymentsClientOptions.DEFAULT, httpClient, httpLogger);
+        grantForIncomingPayment = createGrantForIncomingPayment();
+        grantForQuote = createGrantForQuote();
+        walletAddress = createWalletAddress();
+        incomingPayment = createIncomingPayment();
+        quote = createQuote();
+        outgoingPayment = createOutgoingPayment();
+        payment = createPayment();
+        Logger logger = (Logger) LoggerFactory.getLogger(OpenPaymentsHttpClient.class);
+        appender = new ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+    }
+
+    @AfterEach
+    void cleanup() {
+        if (appender != null) {
+            Logger logger = (Logger) LoggerFactory.getLogger(OpenPaymentsHttpClient.class);
+            logger.detachAppender(appender);
+            appender.list.clear();
+        }
+    }
+
+    @Nested
+    class Send {
+        @Test
+        void shouldSendRequestAndProcessResponseAndLog() throws IOException, InterruptedException {
+            HttpRequest req = createGetRequest();
+            Person person = new Person("John Doe", 25);
+            var res = createResponse(person);
+            when(httpClient.send(req, HttpResponse.BodyHandlers.ofString())).thenReturn(res);
+            Person response = opClient.send(req, Person.class);
+            assertEquals(person, response);
+            verify(httpLogger).logRequest(req);
+            verify(httpLogger).logResponse(res);
+        }
+
+        @Test
+        void shouldThrowWhenIOExceptionFromHttpClient() throws IOException, InterruptedException {
+            HttpRequest req = createGetRequest();
+            String message = "Handshake failure!";
+            when(httpClient.send(req, HttpResponse.BodyHandlers.ofString())).thenThrow(new IOException(message));
+            var exception = assertThrows(OpenPaymentsClientException.class, () -> opClient.send(req, Person.class));
+            assertEquals(IO_ERROR, exception.getCode());
+            assertEquals(message, exception.getMessage());
+        }
+
+        @Test
+        void shouldThrowWhenRequestInterrupted() throws IOException, InterruptedException {
+            HttpRequest req = createGetRequest();
+            String message = "Interrupted!";
+            when(httpClient.send(req, HttpResponse.BodyHandlers.ofString())).thenThrow(new InterruptedException(message));
+            var exception = assertThrows(OpenPaymentsClientException.class, () -> opClient.send(req, Person.class));
+            assertEquals(INTERRUPTED, exception.getCode());
+            assertEquals(message, exception.getMessage());
+        }
+
+        @ParameterizedTest(name = "{index} → HTTP {0}")
+        @CsvSource({
+                "404, Not found,              WARN,  Client error [404]: Not found",
+                "500, Internal server error,  ERROR, Server error [500]: Internal server error",
+                "305, Use proxy,              WARN,  Unexpected HTTP status [305]: Use proxy",
+                "102, Processing,             WARN,  Unexpected HTTP status [102]: Processing"
+        })
+        void shouldThrowAndLogHttpErrors(int code,
+                                         String description,
+                                         String expectedLevel,
+                                         String expectedLogMessagePart) throws IOException, InterruptedException {
+            HttpRequest req = createGetRequest();
+            when(httpClient.send(eq(req), eq(HttpResponse.BodyHandlers.ofString())))
+                    .thenReturn(createApiErrorResponse(code, description));
+
+            OpenPaymentsAPIException exception = assertThrows(OpenPaymentsAPIException.class,
+                    () -> opClient.send(req, Person.class));
+
+            assertEquals(code, exception.getCode());
+
+            assertNotNull(appender.list);
+            assertEquals(1, appender.list.size());
+            String loggedMessage = appender.list.getFirst().toString();
+            String expectedFullMessage = "[" + expectedLevel + "] " + expectedLogMessagePart;
+            assertEquals(expectedFullMessage, loggedMessage);
+        }
+
+        HttpRequest createGetRequest() {
+            return HttpRequest.newBuilder(URI.create(TEST_URL))
+                    .GET()
+                    .build();
+        }
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("allClientMethods")
+    <T> void shouldSendAPIRequestSuccessfully(String description, Supplier<T> methodCall, T expected) throws Exception {
+        ArgumentCaptor<HttpRequest> requestCaptor = ArgumentCaptor.forClass(HttpRequest.class);
+        when(httpClient.send(any(HttpRequest.class), eq(HttpResponse.BodyHandlers.ofString())))
+                .thenReturn(createResponse(expected));
+
+        T response = methodCall.get();
+        assertEquals(expected, response);
+
+        verify(httpClient).send(requestCaptor.capture(), eq(HttpResponse.BodyHandlers.ofString()));
+    }
+
+    static Stream<Arguments> allClientMethods() {
+        return Stream.of(
+                arg("getWalletAddress", () -> opClient.getWalletAddress("https://wallet.example.com"), walletAddress),
+                arg("createGrantIncomingPayment", () -> opClient.createGrantIncomingPayment(walletAddress), grantForIncomingPayment),
+                arg("createIncomingPayment", () -> opClient.createIncomingPayment(walletAddress, grantForIncomingPayment, BigDecimal.valueOf(100)), incomingPayment),
+                arg("createGrantQuote", () -> opClient.createGrantQuote(walletAddress), grantForQuote),
+                arg("createQuote", () -> opClient.createQuote("quote-token-123", walletAddress, incomingPayment), quote),
+                arg("createGrantContinuation", () -> opClient.createGrantContinuation(walletAddress, quote, URI.create("https://app/cb"), "nonce123"), outgoingPayment),
+                arg("createGrantFinalize", () -> opClient.createGrantFinalize(outgoingPayment, "interact-123"), grantForIncomingPayment),
+                arg("createFinalizePayment", () -> opClient.createFinalizePayment(grantForIncomingPayment, walletAddress, quote), payment)
+        );
+    }
+
+    private static <T> Arguments arg(String name, Supplier<T> call, Object response) {
+        return Arguments.of(name, call, response);
+    }
+
+    HttpResponse<String> createApiErrorResponse(int code, String description) {
+        ApiError error = new ApiError();
+        error.setCode(String.valueOf(code));
+        error.setDescription(description);
+        return createResponse(new ApiErrorWrapper(error), code);
+    }
+
+    record ApiErrorWrapper(ApiError error) {
+    }
+}
