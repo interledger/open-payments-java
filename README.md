@@ -1,4 +1,5 @@
 # Open Payments
+
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Java](https://img.shields.io/badge/Java-21+-orange.svg)](https://openjdk.org/)
 [![GitHub Issues](https://img.shields.io/github/issues/interledger/open-payments/interledger.svg)](https://github.com/interledger/open-payments-java/issues)
@@ -9,7 +10,9 @@
 
 ## What is Open Payments?
 
-Open Payments is an open API standard that can be implemented by account servicing entities (e.g. banks, digital wallet providers, and mobile money providers) to facilitate interoperability in the setup and completion of payments for different use cases including:
+Open Payments is an open API standard that can be implemented by account servicing entities (e.g. banks, digital wallet
+providers, and mobile money providers) to facilitate interoperability in the setup and completion of payments for
+different use cases including:
 
 - [Web Monetization](https://webmonetization.org)
 - Tipping/Donations (low value/low friction)
@@ -20,11 +23,16 @@ Open Payments is an open API standard that can be implemented by account servici
 
 The Open Payments APIs are a collection of three sub-systems:
 
-- A **wallet address server** which exposes public information about Open Payments-enabled accounts called "wallet addresses"
+- A **wallet address server** which exposes public information about Open Payments-enabled accounts called "wallet
+  addresses"
 - A **resource server** which exposes APIs for performing functions against the underlying accounts
-- A **authorisation server** which exposes APIs compliant with the [GNAP](https://datatracker.ietf.org/doc/html/draft-ietf-gnap-core-protocol) standard for getting grants to access the resource server APIs
+- A **authorisation server** which exposes APIs compliant with
+  the [GNAP](https://datatracker.ietf.org/doc/html/draft-ietf-gnap-core-protocol) standard for getting grants to access
+  the resource server APIs
 
-This repository contains a [Java/JVM Open Payments SDK](https://github.com/interledger/open-payments-node/tree/main/packages/open-payments) to make requests via the Open Payments API, as well as Java types for the API.
+This repository contains
+a [Java/JVM Open Payments SDK](https://github.com/interledger/open-payments-node/tree/main/packages/open-payments) to
+make requests via the Open Payments API, as well as Java types for the API.
 
 ### New to Interledger?
 
@@ -38,7 +46,8 @@ Never heard of Interledger before? Or would you like to learn more? Here are som
 
 ## Contributing
 
-Please read the [contribution guidelines](.github/contributing.md) before submitting contributions. All contributions must adhere to our [code of conduct](.github/code_of_conduct.md).
+Please read the [contribution guidelines](.github/contributing.md) before submitting contributions. All contributions
+must adhere to our [code of conduct](.github/code_of_conduct.md).
 
 ## Open Payments Catchup Call
 
@@ -70,12 +79,14 @@ git clone --recurse-submodules git@github.com:interledger/open-payments-java.git
 ### Prerequisites
 
 - [Java Development Kit (JDK)](https://sdkman.io/jdks/) v21+ via SdkMan
-- Gradle v9.0+ 
+- Gradle v9.0+
 
 ### Environment Setup
 
 Maven dependency:
+
 ```xml
+
 <dependency>
     <groupId>org.interledger</groupId>
     <artifactId>open-payments</artifactId>
@@ -84,6 +95,7 @@ Maven dependency:
 ```
 
 Gradle commands:
+
 ```sh
 # Clean build (Linux)
 ./gradlew clean build
@@ -101,4 +113,7 @@ Gradle commands:
 
 # Publish to local Maven repository
 ./gradlew publishToMavenLocal -Prelease.version=1.0.0
+
+# Format code
+./gradlew spotlessApply
 ```

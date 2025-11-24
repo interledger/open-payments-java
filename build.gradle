@@ -2,6 +2,7 @@ plugins {
     id 'java'
     id 'maven-publish'
     id 'signing'
+    id 'com.diffplug.spotless' version '6.25.0'
 }
 
 group = 'org.interledger'
@@ -20,6 +21,12 @@ java {
     }
     withJavadocJar()
     withSourcesJar()
+}
+
+spotless {
+    java {
+        googleJavaFormat().aosp()
+    }
 }
 
 ext {
