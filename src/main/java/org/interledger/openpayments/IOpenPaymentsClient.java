@@ -1,5 +1,6 @@
 package org.interledger.openpayments;
 
+import org.interledger.openpayments.model.common.Amount;
 import org.interledger.openpayments.model.grant.Grant;
 import org.interledger.openpayments.model.incomingpayment.IncomingPayment;
 import org.interledger.openpayments.model.outgoingpayment.OutgoingPayment;
@@ -105,9 +106,7 @@ public interface IOpenPaymentsClient {
      *
      * @param sender the wallet address of the payment sender. This identifies the
      *               account initiating the outgoing payment request.
-     * @param quote the payment quote that includes details such as payment
-     *              amount, currency, and associated metadata. The quote provides
-     *              context to the outgoing payment.
+     * @param debitAmount the amount to be debited from the sender's wallet account.
      * @param returnUrl the URI to which the user will be redirected after
      *                  completing the interaction required for the outgoing
      *                  payment grant.
@@ -120,7 +119,7 @@ public interface IOpenPaymentsClient {
      *         interaction details, or an access token based on the authorization
      *         flow.
      */
-    OutgoingPayment createGrantContinuation(WalletAddress sender, Quote quote, URI returnUrl, String nonce);
+    OutgoingPayment createGrantContinuation(WalletAddress sender, Amount debitAmount, URI returnUrl, String nonce);
 
     /**
      * Finalizes the process for creating a grant associated with an outgoing payment.
@@ -154,6 +153,19 @@ public interface IOpenPaymentsClient {
     Payment createFinalizePayment(Grant finalized, WalletAddress sender, Quote quote);
 
     /**
+     * Creates and finalizes a payment based on the provided grant, sender wallet address, incoming payment,
+     * and debit amount. This method consolidates the required information to generate a finalized
+     * payment transaction.
+     *
+     * @param finalized the finalized grant object containing necessary grant details
+     * @param sender the wallet address initiating the payment
+     * @param incomingPayment the incoming payment details received for processing
+     * @param debitAmount the amount to be debited from the sender's wallet
+     * @return a Payment object representing the completed and finalized payment transaction
+     */
+    Payment createFinalizePayment(Grant finalized, WalletAddress sender, IncomingPayment incomingPayment, Amount debitAmount);
+
+    /**
      * Retrieves the current status of an incoming payment.
      * <p>This method is used to monitor payment completion and track the received amount.
      * It can be called multiple times to poll for payment status updates until the
@@ -166,4 +178,13 @@ public interface IOpenPaymentsClient {
      * @see Grant
      */
     IncomingPayment getIncomingPayment(IncomingPayment incomingPayment, Grant grantRequest);
+
+    /**
+     * Completes the process for incoming payment creation.
+     *
+     * @param incomingPaymentToComplete the incoming payment that needs to be completed
+     * @param ipCompleteGrant the grant associated with completing the incoming payment
+     * @return the completed incoming payment object
+     */
+    IncomingPayment createIncomingPaymentComplete(IncomingPayment incomingPaymentToComplete, Grant ipCompleteGrant);
 }
