@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.interledger.openpayments.IOpenPaymentsClient;
 import org.interledger.openpayments.exception.OpenPaymentsClientException;
 import org.interledger.openpayments.mapper.OpenPaymentsObjectMapper;
+import org.interledger.openpayments.model.IAuthServer;
 import org.interledger.openpayments.model.common.Amount;
 import org.interledger.openpayments.model.grant.*;
 import org.interledger.openpayments.model.incomingpayment.IncomingPayment;
@@ -119,30 +120,27 @@ public class OpenPaymentsHttpClient implements IOpenPaymentsClient {
     }
 
     /**
-     * @see IOpenPaymentsClient#createGrantIncomingPayment(WalletAddress)
-     * @param receiver the wallet address for which the grant is to be created;
-     *                it represents a secure, sharable identifier linked to the
-     *                specific Open Payments account
-     * @return Grant
+     * Creates a new grant for an incoming payment, assigning the specified actions
+     * to the provided receiver wallet address.
+     *
+     * @param receiver the wallet address of the receiver; cannot be null and must have a non-empty auth server
+     * @param actions  optional access actions to be assigned; defaults to read, complete, and create if no actions are provided
+     * @return the grant created for the incoming payment
+     * @throws IllegalArgumentException if the receiver is null or its auth server is empty
      */
     @Override
-    public Grant createGrantIncomingPayment(WalletAddress receiver) {
+    public Grant createGrantIncomingPayment(WalletAddress receiver, AccessAction ... actions) {
         log.debug("createGrantIncomingPayment: {}", receiver);
 
         ensureNotNull(receiver, "WalletAddress receiver cannot be null");
         ensureNotNullOrEmpty(receiver.getAuthServer(), "AuthServer cannot be empty");
 
-        var accessRequest = GrantRequest.build(
-                this.clientWallet,
+        return this.sendGrantRequest(
+                receiver,
                 AccessItemType.incomingPayment,
-                Set.of(AccessAction.read, AccessAction.complete, AccessAction.create)
+                Set.of(AccessAction.read, AccessAction.complete, AccessAction.create),
+                actions
         );
-
-        var request = new SignatureRequestBuilder(this.privateKey, this.keyId, this.mapper)
-                .POST(accessRequest)
-                .target(receiver.getAuthServer())
-                .getRequest(this.options);
-        return this.send(request, Grant.class);
     }
 
     /**
@@ -178,31 +176,29 @@ public class OpenPaymentsHttpClient implements IOpenPaymentsClient {
                 .accessToken(this.extractAccessToken(ipGrant))
                 .getRequest(this.options);
 
-        return send(request, IncomingPayment.class);
+        return this.send(request, IncomingPayment.class);
     }
 
     /**
-     * @see IOpenPaymentsClient#createGrantQuote(WalletAddress)
-     * @param sender the wallet address for which the grant is to be created;
-     *                it represents a secure, sharable identifier linked to the
-     *                specific Open Payments account
-     * @return Grant
+     * Creates a grant quote for the specified sender with the given access actions.
+     *
+     * @param sender the wallet address of the grant recipient; must not be null
+     * @param actions optional variable arguments specifying the access actions to be granted;
+     *                if null or empty, default actions (read, create) will be granted
+     * @return the created {@link Grant} instance containing the details of the grant quote
+     * @throws NullPointerException if the sender parameter is null
      */
     @Override
-    public Grant createGrantQuote(WalletAddress sender) {
+    public Grant createGrantQuote(WalletAddress sender, AccessAction ... actions) {
         log.debug("createGrantQuote: {}", sender);
         ensureNotNull(sender, "WalletAddress sender cannot be null");
 
-        var accessRequest = GrantRequest.build(
-                this.clientWallet,
+        return this.sendGrantRequest(
+                sender,
                 AccessItemType.quote,
-                Set.of(AccessAction.read, AccessAction.create)
+                Set.of(AccessAction.read, AccessAction.create),
+                actions
         );
-        var request = new SignatureRequestBuilder(this.privateKey, this.keyId, this.mapper)
-                .POST(accessRequest)
-                .target(sender.getAuthServer())
-                .getRequest(this.options);
-        return send(request, Grant.class);
     }
 
     /**
@@ -300,7 +296,6 @@ public class OpenPaymentsHttpClient implements IOpenPaymentsClient {
         ensureNotNullOrEmpty(interactRef, "Interact reference cannot be null or empty");
 
         var ref = InteractRef.build(interactRef);
-
         var request = new SignatureRequestBuilder(this.privateKey, this.keyId, this.mapper)
                 .POST(ref)
                 .target(outgoingPayment.getPaymentContinue().getUri())
@@ -364,10 +359,11 @@ public class OpenPaymentsHttpClient implements IOpenPaymentsClient {
         ensureNotNull(finalized, "Grant finalized cannot be null");
         ensureNotNull(sender, "WalletAddress sender cannot be null");
         ensureNotNull(incomingPayment, "IncomingPayment cannot be null");
+        ensureNotNull(incomingPayment.getId(), "IncomingPayment Id cannot be null");
         ensureNotNull(debitAmount, "DebitAmount cannot be null");
 
         var outgoingPayment = new OutgoingPaymentRequest();
-        outgoingPayment.setIncomingPayment(incomingPayment.getWalletAddress());
+        outgoingPayment.setIncomingPayment(incomingPayment.getId());
         outgoingPayment.setDebitAmount(debitAmount);
         outgoingPayment.setWalletAddress(sender.getIdAsURI());
 
@@ -462,6 +458,36 @@ public class OpenPaymentsHttpClient implements IOpenPaymentsClient {
             Thread.currentThread().interrupt();
             throw new OpenPaymentsClientException(INTERRUPTED, e.getMessage(), e);
         }
+    }
+
+    /**
+     * Sends a grant request to the authorization server to request access permissions
+     * for a specific type of access item and actions.
+     *
+     * @param auth the authorization server to which the grant request is sent
+     * @param type the type of access item for which the grant is requested
+     * @param defaultForEmpty the default set of access actions to use if no actions are explicitly specified
+     * @param actions the specific access actions requested, can be empty or null
+     * @return a {@code Grant} object representing the grant received from the authorization server
+     * if the request is successful
+     */
+    private Grant sendGrantRequest(
+            IAuthServer auth,
+            AccessItemType type,
+            Set<AccessAction> defaultForEmpty,
+            AccessAction ... actions
+    ) {
+        assert defaultForEmpty != null : "defaultForEmpty must not be null";
+
+        var perm = actions == null || actions.length == 0 ? defaultForEmpty : Set.of(actions);
+        var accessRequest = GrantRequest.build(this.clientWallet, type, perm);
+
+        var request = new SignatureRequestBuilder(this.privateKey, this.keyId, this.mapper)
+                .POST(accessRequest)
+                .target(auth.getAuthServer())
+                .getRequest(this.options);
+
+        return this.send(request, Grant.class);
     }
 
     /**

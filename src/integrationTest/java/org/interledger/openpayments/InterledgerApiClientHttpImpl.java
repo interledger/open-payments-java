@@ -2,6 +2,7 @@ package org.interledger.openpayments;
 
 import lombok.extern.slf4j.Slf4j;
 import org.interledger.openpayments.httpclient.OpenPaymentsHttpClient;
+import org.interledger.openpayments.model.common.Amount;
 import org.interledger.openpayments.model.grant.Grant;
 import org.interledger.openpayments.util.UtilGlobal;
 import org.junit.jupiter.api.Assertions;
@@ -205,7 +206,7 @@ class InterledgerApiClientHttpImpl {
         // This establishes the payment destination and amount that the sender will pay to.
         log.info("********");
         log.info("STEP 2: Create incoming payment request");
-        var incomingPayment = this.client.createIncomingPayment(receiverWallet, grantRequest, BigDecimal.valueOf(12.34));
+        var incomingPayment = this.client.createIncomingPayment(receiverWallet, grantRequest, BigDecimal.valueOf(11.25));
         assertNotNull(incomingPayment);
         log.info("Incoming payment created: " + incomingPayment.getId() + " for " +
                 incomingPayment.getIncomingAmount().getAmount() + " " + incomingPayment.getIncomingAmount().getAssetCode());
@@ -349,7 +350,7 @@ class InterledgerApiClientHttpImpl {
             log.info("Final payment amount: " + payment.getReceivedAmount().getAmount() +
                     " " + payment.getReceivedAmount().getAssetCode());
         } else {
-            log.warn("Payment did not complete within timeout period");
+            log.warn("Quote: Payment did not complete within timeout period");
         }
     }
 
@@ -370,16 +371,17 @@ class InterledgerApiClientHttpImpl {
         // incoming payments on the receiver's wallet.
         log.info("********");
         log.info("STEP 1: Create pending grant for receiver");
-        var grantRequest = this.client.createGrantIncomingPayment(receiverWallet);
-        assertNotNull(grantRequest);
-        log.info("Receiver grant created with token: " + grantRequest.getAccess().getToken().substring(0, 10) + "...");
+        var ipGrant = this.client.createGrantIncomingPayment(receiverWallet);
+        assertNotNull(ipGrant);
+        log.info("Receiver grant created with token: " + ipGrant.getAccess().getToken().substring(0, 10) + "...");
 
         // STEP 2: INCOMING PAYMENT CREATION
         // Create an incoming payment request for €12.34 on the receiver's wallet.
         // This establishes the payment destination and amount that the sender will pay to.
         log.info("********");
         log.info("STEP 2: Create incoming payment request");
-        var incomingPayment = this.client.createIncomingPayment(receiverWallet, grantRequest, BigDecimal.valueOf(12.34));
+        var amount = BigDecimal.valueOf(12.25);
+        var incomingPayment = this.client.createIncomingPayment(receiverWallet, ipGrant, amount);
         assertNotNull(incomingPayment);
         log.info("Incoming payment created: " + incomingPayment.getId() + " for " +
                 incomingPayment.getIncomingAmount().getAmount() + " " + incomingPayment.getIncomingAmount().getAssetCode());
@@ -393,29 +395,7 @@ class InterledgerApiClientHttpImpl {
         assertNotNull(senderWallet);
         log.info("Sender wallet discovered: " + senderWallet.getPublicName() + " (" + senderWallet.getAssetCode() + ")");
 
-        // STEP 3: SENDER QUOTE REQUEST GRANT
-        // Create an access grant that allows ILF to request quotes on the sender's wallet.
-        // This is needed to calculate transaction fees and exchange rates.
-        log.info("********");
-        log.info("STEP 3: Create quote request grant for sender");
-        var quoteRequest = this.client.createGrantQuote(senderWallet);
-        assertNotNull(quoteRequest);
-        log.info("Quote request grant created for sender wallet");
-
-        // STEP 4: QUOTE GENERATION
-        // Generate a quote that calculates the exact amount the sender needs to pay
-        // including any transaction fees. The quote links the sender to the incoming payment.
-        log.info("********");
-        log.info("STEP 4: Generate payment quote");
-        var quote = this.client.createQuote(quoteRequest.getAccess().getToken(), senderWallet, incomingPayment);
-        assertNotNull(quote);
-        log.info("Quote generated - Sender pays: " + quote.getDebitAmount().getAmount() + " " +
-                quote.getDebitAmount().getAssetCode() +
-                ", Receiver gets: " + quote.getReceiveAmount().getAmount() + " " +
-                quote.getReceiveAmount().getAssetCode()
-        );
-
-        // STEP 5: PAYMENT CONTINUATION & USER INTERACTION
+        // STEP 3: PAYMENT CONTINUATION & USER INTERACTION
         // Create a redirect URL that the user must visit to authorize the payment in their wallet.
         // This implements the interactive authorization flow required by Open Payments.
         log.info("********");
@@ -428,7 +408,8 @@ class InterledgerApiClientHttpImpl {
         // Create outing payment from quote:
         var opContinueInteract = this.client.createGrantContinuation(
                 senderWallet,
-                quote.getDebitAmount(),
+                incomingPayment.getIncomingAmount(),
+                //quote.getDebitAmount(),
                 URI.create(urlToOpen),
                 "test"
         );
@@ -462,16 +443,16 @@ class InterledgerApiClientHttpImpl {
         }
         this.httpServer.shutdown();
 
-        // STEP 5.5: CHECK PAYMENT STATUS BEFORE FINALIZATION
+        // STEP 4.5: CHECK PAYMENT STATUS BEFORE FINALIZATION
         // Verify the payment state before attempting to finalize it
         log.info("********");
         log.info("STEP 5.5: Check incoming payment status before finalization");
-        var payment = this.client.getIncomingPayment(incomingPayment, grantRequest);
+        var payment = this.client.getIncomingPayment(incomingPayment, ipGrant);
         assertNotNull(payment);
         assertFalse(payment.isCompleted()); // Should not be completed yet
         log.info("Payment status before finalization: completed=" + payment.isCompleted());
 
-        // STEP 6: PAYMENT FINALIZATION
+        // STEP 5: PAYMENT FINALIZATION
         // If user approved the payment (provided interact_ref), finalize the transaction
         log.info("********");
         log.info("STEP 6: Finalize payment transaction");
@@ -484,20 +465,28 @@ class InterledgerApiClientHttpImpl {
             // This confirms the user's authorization and provides final access token
             log.info("Grant finalized successfully");
 
-            //TODO need to perform
-
             if (finalized.getAccess().getToken() != null) {
                 // STEP 6B: Execute the actual payment using the finalized grant
                 // This transfers the funds from sender to receiver
-                var finalizedPayment = this.client.createFinalizePayment(
+                var finalizedPayment_1Of2 = this.client.createFinalizePayment(
                         finalized,
                         senderWallet,
                         payment,
-                        payment.getIncomingAmount()
+                        Amount.build(BigDecimal.valueOf(10.00), payment.getIncomingAmount().getAssetCode())
                 );
-                assertNotNull(finalizedPayment);
-                assertFalse(finalizedPayment.getFailed());
-                log.info("Payment executed successfully: " + finalizedPayment.getId());
+                assertNotNull(finalizedPayment_1Of2);
+                assertFalse(finalizedPayment_1Of2.getFailed());
+                log.info("Payment (1 of 2) executed successfully: " + finalizedPayment_1Of2.getId());
+
+                var finalizedPayment_2Of2 = this.client.createFinalizePayment(
+                        finalized,
+                        senderWallet,
+                        payment,
+                        Amount.build(BigDecimal.valueOf(2.25), payment.getIncomingAmount().getAssetCode())
+                );
+                assertNotNull(finalizedPayment_2Of2);
+                assertFalse(finalizedPayment_2Of2.getFailed());
+                log.info("Payment (2 of 2) executed successfully: " + finalizedPayment_2Of2.getId());
             } else {
                 log.info("********");
                 log.error("Cannot execute payment - grant finalization failed: " + opContinueInteract.getInteract().getRedirect());
@@ -507,15 +496,20 @@ class InterledgerApiClientHttpImpl {
             log.error("Payment DECLINED - user did not provide interact_ref");
         }
 
-        // STEP 7: PAYMENT STATUS MONITORING
+        // STEP 7: COMPLETE THE INCOMING PAYMENT
+        // Poll the payment status until completion or timeout (10 attempts)
+        var incomingPaymentComplete = this.client.createIncomingPaymentComplete(incomingPayment, ipGrant);
+        assertNotNull(incomingPaymentComplete);
+
+        // STEP 8: PAYMENT STATUS MONITORING
         // Poll the payment status until completion or timeout (10 attempts)
         log.info("********");
         log.info("STEP 7: Monitor payment completion status");
         int count = 0;
-        while (!payment.isCompleted() && count < 10) { // wait at least 10s ...
+        while (!payment.isCompleted() && count < 15) { // wait at least 10s ...
             count++;
 
-            payment = this.client.getIncomingPayment(incomingPayment, grantRequest);
+            payment = this.client.getIncomingPayment(incomingPayment, ipGrant);
             assertNotNull(payment);
             log.info("********");
             log.info("Payment status check #" + count + " - Completed: " + payment.isCompleted());
@@ -530,7 +524,7 @@ class InterledgerApiClientHttpImpl {
             log.info("Final payment amount: " + payment.getReceivedAmount().getAmount() +
                     " " + payment.getReceivedAmount().getAssetCode());
         } else {
-            log.warn("Payment did not complete within timeout period");
+            log.warn("Incoming: Payment did not complete within timeout period");
         }
     }
 }

@@ -1,6 +1,7 @@
 package org.interledger.openpayments;
 
 import org.interledger.openpayments.model.common.Amount;
+import org.interledger.openpayments.model.grant.AccessAction;
 import org.interledger.openpayments.model.grant.Grant;
 import org.interledger.openpayments.model.incomingpayment.IncomingPayment;
 import org.interledger.openpayments.model.outgoingpayment.OutgoingPayment;
@@ -32,18 +33,13 @@ public interface IOpenPaymentsClient {
     WalletAddress getWalletAddress(String url);
 
     /**
-     * Creates a grant for incoming payment using the given wallet address.
-     * This method interacts with the Open Payments-enabled server to generate
-     * an access grant, allowing the client to receive incoming payments.
+     * Creates and returns a grant to enable incoming payment permissions for the specified wallet address.
      *
-     * @param receiver the wallet address for which the grant is to be created;
-     *                it represents a secure, sharable identifier linked to the
-     *                specific Open Payments account
-     * @return a Grant object containing the access credentials, including the
-     *         access token and optional continuation details, for interacting
-     *         with the server
+     * @param receiver the wallet address that will receive the granted incoming payments
+     * @param actions the actions associated with the granted permissions.
+     * @return the created grant for the specified receiver and actions
      */
-    Grant createGrantIncomingPayment(WalletAddress receiver);
+    Grant createGrantIncomingPayment(WalletAddress receiver, AccessAction... actions);
 
     /**
      * Creates an incoming payment for the specified receiver with the given grant
@@ -72,11 +68,12 @@ public interface IOpenPaymentsClient {
      * @param sender the wallet address representing the source of the payment.
      *               It identifies the payment sender's account and is used to
      *               generate the associated grant.
+     * @param actions the actions associated with the granted permissions.
      * @return a Grant object containing the access credentials, including the
      *         access token and optional continuation details, for quoting payments
      *         on behalf of the sender.
      */
-    Grant createGrantQuote(WalletAddress sender);
+    Grant createGrantQuote(WalletAddress sender, AccessAction... actions);
 
     /**
      * Creates a payment quote for a specified sender and incoming payment.
