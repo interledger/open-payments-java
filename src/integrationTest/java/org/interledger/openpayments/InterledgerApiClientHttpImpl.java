@@ -399,7 +399,7 @@ class InterledgerApiClientHttpImpl {
         // Create a redirect URL that the user must visit to authorize the payment in their wallet.
         // This implements the interactive authorization flow required by Open Payments.
         log.info("********");
-        log.info("STEP 5: Create user interaction redirect");
+        log.info("STEP 3: Create user interaction redirect");
         int port = 8888;
         this.httpServer = new SimpleHttpServer(port);
         this.httpServer.start();
@@ -446,7 +446,7 @@ class InterledgerApiClientHttpImpl {
         // STEP 4.5: CHECK PAYMENT STATUS BEFORE FINALIZATION
         // Verify the payment state before attempting to finalize it
         log.info("********");
-        log.info("STEP 5.5: Check incoming payment status before finalization");
+        log.info("STEP 4.5: Check incoming payment status before finalization");
         var payment = this.client.getIncomingPayment(incomingPayment, ipGrant);
         assertNotNull(payment);
         assertFalse(payment.isCompleted()); // Should not be completed yet
@@ -455,7 +455,7 @@ class InterledgerApiClientHttpImpl {
         // STEP 5: PAYMENT FINALIZATION
         // If user approved the payment (provided interact_ref), finalize the transaction
         log.info("********");
-        log.info("STEP 6: Finalize payment transaction");
+        log.info("STEP 5: Finalize payment transaction");
 
         if (interactReference != null && !interactReference.isBlank()) {
             log.info("User approved payment - finalizing with reference: " + interactReference);
@@ -466,6 +466,7 @@ class InterledgerApiClientHttpImpl {
             log.info("Grant finalized successfully");
 
             if (finalized.getAccess().getToken() != null) {
+                // 2x incoming payments.
                 // STEP 6B: Execute the actual payment using the finalized grant
                 // This transfers the funds from sender to receiver
                 var finalizedPayment_1Of2 = this.client.createFinalizePayment(
@@ -497,14 +498,15 @@ class InterledgerApiClientHttpImpl {
         }
 
         // STEP 7: COMPLETE THE INCOMING PAYMENT
-        // Poll the payment status until completion or timeout (10 attempts)
+        log.info("********");
+        log.info("STEP 7: Complete the incoming payment");
         var incomingPaymentComplete = this.client.createIncomingPaymentComplete(incomingPayment, ipGrant);
         assertNotNull(incomingPaymentComplete);
 
         // STEP 8: PAYMENT STATUS MONITORING
-        // Poll the payment status until completion or timeout (10 attempts)
+        // Poll the payment status until completion or timeout (15 attempts)
         log.info("********");
-        log.info("STEP 7: Monitor payment completion status");
+        log.info("STEP 8: Monitor payment completion status");
         int count = 0;
         while (!payment.isCompleted() && count < 15) { // wait at least 10s ...
             count++;
