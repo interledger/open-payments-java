@@ -1,5 +1,9 @@
 package org.interledger.openpayments.util.testing;
 
+import java.math.BigDecimal;
+import java.net.URI;
+import java.time.Instant;
+import java.util.Set;
 import org.interledger.openpayments.model.common.Amount;
 import org.interledger.openpayments.model.grant.*;
 import org.interledger.openpayments.model.incomingpayment.IncomingPayment;
@@ -8,11 +12,14 @@ import org.interledger.openpayments.model.payment.Payment;
 import org.interledger.openpayments.model.quote.Quote;
 import org.interledger.openpayments.model.walletaddress.WalletAddress;
 
-import java.math.BigDecimal;
-import java.net.URI;
-import java.time.Instant;
-import java.util.Set;
-
+/**
+ * TestModels - Shared test data factory for Open Payments objects.
+ *
+ * <p>Provides reusable, pre-configured model instances and constant URLs used across unit tests.
+ * All created objects reflect valid, realistic structures as expected by the Open Payments API.</p>
+ *
+ * <p>Centralizes test data to ensure consistency, avoid duplication, and make test intent clearer.</p>
+ */
 public final class TestModels {
     public static final String TEST_URL = "https://api.example.com/";
     private static final String AUTH_URL = "https://api.example.com/auth";
@@ -31,13 +38,13 @@ public final class TestModels {
     }
 
     public static Quote createQuote() {
-        Quote quote = new Quote();
+        var quote = new Quote();
         quote.setDebitAmount(Amount.build(BigDecimal.valueOf(100), "USD"));
         return quote;
     }
 
     public static OutgoingPayment createOutgoingPayment() {
-        OutgoingPayment outgoingPayment = new OutgoingPayment();
+        var outgoingPayment = new OutgoingPayment();
         var accessContinue = new AccessContinue();
         accessContinue.setUri(URI.create(OUTGOING_PAYMENT_URL));
         var accessToken = new AccessToken();
@@ -50,7 +57,7 @@ public final class TestModels {
     }
 
     public static IncomingPayment createIncomingPayment() {
-        IncomingPayment incomingPayment = new IncomingPayment();
+        var incomingPayment = new IncomingPayment();
         incomingPayment.setId(URI.create(INCOMING_PAYMENT_URL));
         incomingPayment.setCreatedAt(Instant.now());
         return incomingPayment;
@@ -65,8 +72,8 @@ public final class TestModels {
     }
 
     public static Grant createGrant(AccessItemType type, Set<AccessAction> actions) {
-        Grant grant = new Grant();
-        AccessToken access = new AccessToken();
+        var grant = new Grant();
+        var access = new AccessToken();
         access.setToken("token");
         var accessItem = new AccessItem();
         accessItem.setAccessType(type);
@@ -78,7 +85,7 @@ public final class TestModels {
     }
 
     public static Payment createPayment() {
-        Payment payment = new Payment();
+        var payment = new Payment();
         payment.setCreatedAt(Instant.now());
         payment.setId(URI.create(TEST_URL));
         return payment;
