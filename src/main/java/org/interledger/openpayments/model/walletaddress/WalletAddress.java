@@ -3,6 +3,7 @@ package org.interledger.openpayments.model.walletaddress;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
+import org.interledger.openpayments.model.IAuthServer;
 
 import java.net.URI;
 
@@ -11,7 +12,7 @@ import java.net.URI;
  * Each wallet address acts a service endpoint into the APIs, allowing clients to interact with the underlying account.
  */
 @Data
-public class WalletAddress {
+public class WalletAddress implements IAuthServer {
     /**
      * The unique identifier for the wallet address.
      *

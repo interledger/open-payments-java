@@ -2,6 +2,7 @@ package org.interledger.openpayments;
 
 import lombok.extern.slf4j.Slf4j;
 import org.interledger.openpayments.httpclient.OpenPaymentsHttpClient;
+import org.interledger.openpayments.model.common.Amount;
 import org.interledger.openpayments.model.grant.Grant;
 import org.interledger.openpayments.util.UtilGlobal;
 import org.junit.jupiter.api.Assertions;
@@ -180,7 +181,7 @@ class InterledgerApiClientHttpImpl {
      *
      */
     @Test
-    public void getGrantRequest() throws InterruptedException {
+    public void openPaymentsCreateOutgoingFromQuote() throws InterruptedException {
         // STEP 0: RECEIVER WALLET DISCOVERY
         // Get the receiver's wallet information including supported currencies,
         // authorization server, and resource server endpoints
@@ -205,7 +206,7 @@ class InterledgerApiClientHttpImpl {
         // This establishes the payment destination and amount that the sender will pay to.
         log.info("********");
         log.info("STEP 2: Create incoming payment request");
-        var incomingPayment = this.client.createIncomingPayment(receiverWallet, grantRequest, BigDecimal.valueOf(12.34));
+        var incomingPayment = this.client.createIncomingPayment(receiverWallet, grantRequest, BigDecimal.valueOf(11.25));
         assertNotNull(incomingPayment);
         log.info("Incoming payment created: " + incomingPayment.getId() + " for " +
                 incomingPayment.getIncomingAmount().getAmount() + " " + incomingPayment.getIncomingAmount().getAssetCode());
@@ -251,14 +252,17 @@ class InterledgerApiClientHttpImpl {
         this.httpServer.start();
 
         var urlToOpen = "http://localhost:%d?paymentId=1234".formatted(port);
-        var continueInteract = this.client.createGrantContinuation(senderWallet, quote,
+        // Create outing payment from quote:
+        var opContinueInteract = this.client.createGrantContinuation(
+                senderWallet,
+                quote.getDebitAmount(),
                 URI.create(urlToOpen),
                 "test"
         );
 
         log.info("********");
         log.info("USER INTERACTION REQUIRED:");
-        log.info(String.format("%n-> CLICK ON LINK!!!: %n%s%n-----%n", continueInteract.getInteract().getRedirect()));
+        log.info(String.format("%n-> CLICK ON LINK!!!: %n%s%n-----%n", opContinueInteract.getInteract().getRedirect()));
         log.info("After clicking, copy the 'interact_ref' parameter from the return URL");
         log.info("********");
 
@@ -285,7 +289,6 @@ class InterledgerApiClientHttpImpl {
         }
         this.httpServer.shutdown();
 
-
         // STEP 5.5: CHECK PAYMENT STATUS BEFORE FINALIZATION
         // Verify the payment state before attempting to finalize it
         log.info("********");
@@ -302,7 +305,7 @@ class InterledgerApiClientHttpImpl {
 
         if (interactReference != null && !interactReference.isBlank()) {
             log.info("User approved payment - finalizing with reference: " + interactReference);
-            Grant finalized = this.client.createGrantFinalize(continueInteract, interactReference);
+            Grant finalized = this.client.createGrantFinalize(opContinueInteract, interactReference);
             assertNotNull(finalized);
             // STEP 6A: Finalize the grant using the interact reference
             // This confirms the user's authorization and provides final access token
@@ -317,7 +320,7 @@ class InterledgerApiClientHttpImpl {
                 log.info("Payment executed successfully: " + finalizedPayment.getId());
             } else {
                 log.info("********");
-                log.error("Cannot execute payment - grant finalization failed: " + continueInteract.getInteract().getRedirect());
+                log.error("Cannot execute payment - grant finalization failed: " + opContinueInteract.getInteract().getRedirect());
             }
         } else {
             log.info("********");
@@ -347,7 +350,183 @@ class InterledgerApiClientHttpImpl {
             log.info("Final payment amount: " + payment.getReceivedAmount().getAmount() +
                     " " + payment.getReceivedAmount().getAssetCode());
         } else {
-            log.warn("Payment did not complete within timeout period");
+            log.warn("Quote: Payment did not complete within timeout period");
+        }
+    }
+
+    @Test
+    public void openPaymentsCreateOutgoingFromIncomingPayment() throws InterruptedException {
+        // STEP 0: RECEIVER WALLET DISCOVERY
+        // Get the receiver's wallet information including supported currencies,
+        // authorization server, and resource server endpoints
+        log.info("********");
+        log.info("STEP 0: Get receiver wallet information");
+        var receiverWallet = client.getWalletAddress(TestHelper.getReceiverWalletAddress());
+        assertNotNull(receiverWallet);
+        log.info("Receiver wallet discovered: " + receiverWallet.getPublicName() + " (" + receiverWallet.getAssetCode() + ")");
+
+        // STEP 1: RECEIVER GRANT REQUEST
+        // Create an access grant that allows ILF to create incoming payment requests
+        // on behalf of the receiver. This grant provides permissions to read, complete, and create
+        // incoming payments on the receiver's wallet.
+        log.info("********");
+        log.info("STEP 1: Create pending grant for receiver");
+        var ipGrant = this.client.createGrantIncomingPayment(receiverWallet);
+        assertNotNull(ipGrant);
+        log.info("Receiver grant created with token: " + ipGrant.getAccess().getToken().substring(0, 10) + "...");
+
+        // STEP 2: INCOMING PAYMENT CREATION
+        // Create an incoming payment request for €12.34 on the receiver's wallet.
+        // This establishes the payment destination and amount that the sender will pay to.
+        log.info("********");
+        log.info("STEP 2: Create incoming payment request");
+        var amount = BigDecimal.valueOf(12.25);
+        var incomingPayment = this.client.createIncomingPayment(receiverWallet, ipGrant, amount);
+        assertNotNull(incomingPayment);
+        log.info("Incoming payment created: " + incomingPayment.getId() + " for " +
+                incomingPayment.getIncomingAmount().getAmount() + " " + incomingPayment.getIncomingAmount().getAssetCode());
+
+        // STEP 2.5: SENDER WALLET DISCOVERY
+        // In a real scenario, the user would enter their wallet address at this point.
+        // We simulate this by getting the sender's wallet information.
+        log.info("********");
+        log.info("STEP 2.5: Get sender wallet information (user enters their wallet)");
+        var senderWallet = this.client.getWalletAddress(TestHelper.getSenderWalletAddress());
+        assertNotNull(senderWallet);
+        log.info("Sender wallet discovered: " + senderWallet.getPublicName() + " (" + senderWallet.getAssetCode() + ")");
+
+        // STEP 3: PAYMENT CONTINUATION & USER INTERACTION
+        // Create a redirect URL that the user must visit to authorize the payment in their wallet.
+        // This implements the interactive authorization flow required by Open Payments.
+        log.info("********");
+        log.info("STEP 3: Create user interaction redirect");
+        int port = 8888;
+        this.httpServer = new SimpleHttpServer(port);
+        this.httpServer.start();
+
+        var urlToOpen = "http://localhost:%d?paymentId=1234".formatted(port);
+        // Create outing payment from quote:
+        var opContinueInteract = this.client.createGrantContinuation(
+                senderWallet,
+                incomingPayment.getIncomingAmount(),
+                //quote.getDebitAmount(),
+                URI.create(urlToOpen),
+                "test"
+        );
+
+        log.info("********");
+        log.info("USER INTERACTION REQUIRED:");
+        log.info(String.format("%n-> CLICK ON LINK!!!: %n%s%n-----%n", opContinueInteract.getInteract().getRedirect()));
+        log.info("After clicking, copy the 'interact_ref' parameter from the return URL");
+        log.info("********");
+
+        int waitLocalCount = 0;
+        while (waitLocalCount < 60) {
+            if (!UtilGlobal.isNullOrEmpty(this.httpServer.getLastRequestLine())) break;
+
+            waitLocalCount++;
+            sleep(1000);
+        }
+
+        var lastLine = this.httpServer.getLastRequestLine();
+        final String interactReference;
+        // The redirect URL will contain query parameters when the user returns:
+
+        // MANUAL STEP: User clicks redirect link and authorizes payment in their wallet
+        // The wallet redirects back with an interact_ref parameter that we need to capture
+        if (UtilGlobal.isNullOrEmpty(lastLine)) {
+            interactReference = JOptionPane.showInputDialog("Enter 'Interact Reference:' query parameter from return URL:");
+            log.info("You entered: " + interactReference);
+        } else {
+            //GET /?paymentId=1234&hash=1uI013KNT6iU7Qtgd8U1G1E4d3bMAiCI85kgllUwXYQ=&interact_ref=003064ec-5b08-4acf-90ec-d8e4779fc7ef HTTP/1.1
+            interactReference = lastLine.substring(lastLine.indexOf("interact_ref=") + 13, lastLine.indexOf("interact_ref=") + 13 + 36);
+        }
+        this.httpServer.shutdown();
+
+        // STEP 4.5: CHECK PAYMENT STATUS BEFORE FINALIZATION
+        // Verify the payment state before attempting to finalize it
+        log.info("********");
+        log.info("STEP 4.5: Check incoming payment status before finalization");
+        var payment = this.client.getIncomingPayment(incomingPayment, ipGrant);
+        assertNotNull(payment);
+        assertFalse(payment.isCompleted()); // Should not be completed yet
+        log.info("Payment status before finalization: completed=" + payment.isCompleted());
+
+        // STEP 5: PAYMENT FINALIZATION
+        // If user approved the payment (provided interact_ref), finalize the transaction
+        log.info("********");
+        log.info("STEP 5: Finalize payment transaction");
+
+        if (interactReference != null && !interactReference.isBlank()) {
+            log.info("User approved payment - finalizing with reference: " + interactReference);
+            var finalized = this.client.createGrantFinalize(opContinueInteract, interactReference);
+            assertNotNull(finalized);
+            // STEP 6A: Finalize the grant using the interact reference
+            // This confirms the user's authorization and provides final access token
+            log.info("Grant finalized successfully");
+
+            if (finalized.getAccess().getToken() != null) {
+                // 2x incoming payments.
+                // STEP 6B: Execute the actual payment using the finalized grant
+                // This transfers the funds from sender to receiver
+                var finalizedPayment_1Of2 = this.client.createFinalizePayment(
+                        finalized,
+                        senderWallet,
+                        payment,
+                        Amount.build(BigDecimal.valueOf(10.00), payment.getIncomingAmount().getAssetCode())
+                );
+                assertNotNull(finalizedPayment_1Of2);
+                assertFalse(finalizedPayment_1Of2.getFailed());
+                log.info("Payment (1 of 2) executed successfully: " + finalizedPayment_1Of2.getId());
+
+                var finalizedPayment_2Of2 = this.client.createFinalizePayment(
+                        finalized,
+                        senderWallet,
+                        payment,
+                        Amount.build(BigDecimal.valueOf(2.25), payment.getIncomingAmount().getAssetCode())
+                );
+                assertNotNull(finalizedPayment_2Of2);
+                assertFalse(finalizedPayment_2Of2.getFailed());
+                log.info("Payment (2 of 2) executed successfully: " + finalizedPayment_2Of2.getId());
+            } else {
+                log.info("********");
+                log.error("Cannot execute payment - grant finalization failed: " + opContinueInteract.getInteract().getRedirect());
+            }
+        } else {
+            log.info("********");
+            log.error("Payment DECLINED - user did not provide interact_ref");
+        }
+
+        // STEP 7: COMPLETE THE INCOMING PAYMENT
+        log.info("********");
+        log.info("STEP 7: Complete the incoming payment");
+        var incomingPaymentComplete = this.client.createIncomingPaymentComplete(incomingPayment, ipGrant);
+        assertNotNull(incomingPaymentComplete);
+
+        // STEP 8: PAYMENT STATUS MONITORING
+        // Poll the payment status until completion or timeout (15 attempts)
+        log.info("********");
+        log.info("STEP 8: Monitor payment completion status");
+        int count = 0;
+        while (!payment.isCompleted() && count < 15) { // wait at least 10s ...
+            count++;
+
+            payment = this.client.getIncomingPayment(incomingPayment, ipGrant);
+            assertNotNull(payment);
+            log.info("********");
+            log.info("Payment status check #" + count + " - Completed: " + payment.isCompleted());
+
+            if (!payment.isCompleted()) {
+                sleep(1000); // Wait 1 second before the next check
+            }
+        }
+
+        if (payment.isCompleted()) {
+            log.info("SUCCESS: Payment completed successfully!");
+            log.info("Final payment amount: " + payment.getReceivedAmount().getAmount() +
+                    " " + payment.getReceivedAmount().getAssetCode());
+        } else {
+            log.warn("Incoming: Payment did not complete within timeout period");
         }
     }
 }
