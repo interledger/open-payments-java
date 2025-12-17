@@ -363,9 +363,8 @@ public class SignatureRequestBuilder {
      */
     private String prepareTarget(URI value) {
         ensureNotNull(value, "Target URI cannot be null!");
-
         // We must fix target so it conforms to expectations
-        String out = value.toString();
+        var out = value.toString();
         if (!out.endsWith("/") && value.getQuery() == null) {
             return out + "/";
         }

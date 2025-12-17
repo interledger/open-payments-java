@@ -2,12 +2,13 @@ plugins {
     id 'java'
     id 'maven-publish'
     id 'signing'
-    // Publishes to Sonatype OSSRH / Maven Central
-    id 'io.github.gradle-nexus.publish-plugin' version '2.0.0'
+    // JReleaser for publishing to Maven Central
+    id 'org.jreleaser' version '1.14.0'
 }
 
 group = 'org.interledger'
 version = project.findProperty('release.version') ?: '0.0.1-SNAPSHOT'
+description = 'The OpenPayments Java SDK.'
 
 // Set a proper artifact name
 def artifactName = 'open-payments'
@@ -128,6 +129,12 @@ dependencies {
 
 publishing {
     repositories {
+        maven {
+            name = 'staging'
+            url = layout.buildDirectory.dir('staging-deploy')
+        }
+    }
+    /*repositories {
         // Private internal repository for interledger/packages
         maven {
             name = 'Private'
@@ -137,8 +144,7 @@ publishing {
                 password = project.findProperty('github.token') ?: System.getenv('PACKAGES_TOKEN')
             }
         }
-    }
-
+    }*/
     publications {
         maven(MavenPublication) {
             from components.java
@@ -192,57 +198,57 @@ publishing {
     }
 }
 
-// Configure artifact signing for Maven Central
-signing {
-    def signingKey = findProperty('signing.key') ?: System.getenv('SIGNING_KEY')
-    logger.info('PGP: Singing with key '+ signingKey)
-    def signingPassword = findProperty('signing.password') ?: System.getenv('SIGNING_PASSWORD')
-
-    if (signingKey && signingPassword) {
-        useInMemoryPgpKeys(signingKey as String, signingPassword as String)
-        useGpgCmd()
-        sign publishing.publications.maven
-    } else {
-        logger.lifecycle('Signing is not configured. Set signing.key and signing.password properties or env vars SIGNING_KEY and SIGNING_PASSWORD to enable signing.')
-    }
-}
-
-// Configure Nexus (Sonatype) publishing targets
-/*nexusPublishing {
-    repositories {
-        // OSSRH on the s01 host (most new projects use s01)
-        sonatype {
-            username = findProperty('sonatypeUsername') ?: System.getenv('OSSRH_USERNAME')
-            password = findProperty('sonatypePassword') ?: System.getenv('OSSRH_PASSWORD')
-            //nexusUrl.set(uri('https://s01.oss.sonatype.org/service/local/'))
-            //snapshotRepositoryUrl.set(uri('https://s01.oss.sonatype.org/content/repositories/snapshots/'))
-        }
-    }
-}*/
-
+// Configure artifact signing for Maven Central via JReleaser (preferred)
 jreleaser {
+    project {
+        // Used by JReleaser in release metadata/announcements
+        copyright = "2025 Interledger"
+    }
+    // Reuse project info from Gradle (group, version, POM metadata)
     signing {
         active = 'ALWAYS'
         armored = true
+        mode = 'MEMORY'
+        // Expect ASCII-armored private key content
+        secretKey = (findProperty('signing.key') ?: System.getenv('SIGNING_KEY'))
+        passphrase = (findProperty('signing.password') ?: System.getenv('SIGNING_PASSWORD'))
     }
     deploy {
         maven {
+            // Use the new Central Portal publisher API
             mavenCentral {
                 sonatype {
                     active = 'ALWAYS'
                     url = 'https://central.sonatype.com/api/v1/publisher'
                     stagingRepository('build/staging-deploy')
+                    username = (findProperty('sonatypeUsername') ?: System.getenv('OSSRH_USERNAME'))
+                    password = (findProperty('sonatypePassword') ?: System.getenv('OSSRH_PASSWORD'))
                 }
             }
-            /* Legacy OSSRH
-            nexus2 {
-                'maven-central' {
+
+            //repositories {
+                /*mavenCentral {
                     active = 'ALWAYS'
-                    url = 'https://s01.oss.sonatype.org/service/local'
-                    snapshotUrl = 'https://s01.oss.sonatype.org/content/repositories/snapshots/'
-                    closeRepository = true
-                    releaseRepository = true
-                    stagingRepository('build/staging-deploy')
+                    // Default URL for Central Portal publisher API
+                    url = 'https://central.sonatype.com/api/v1/publisher'
+                    // Credentials: prefer env vars, fallback to gradle.properties
+                    username = (findProperty('sonatypeUsername') ?: System.getenv('OSSRH_USERNAME'))
+                    password = (findProperty('sonatypePassword') ?: System.getenv('OSSRH_PASSWORD'))
+                }*/
+            //}
+            // If you must use legacy OSSRH (nexus2), uncomment and configure below
+            /*
+            repositories {
+                nexus2 {
+                    mavenCentral {
+                        active = 'ALWAYS'
+                        url = 'https://s01.oss.sonatype.org/service/local'
+                        snapshotUrl = 'https://s01.oss.sonatype.org/content/repositories/snapshots/'
+                        closeRepository = true
+                        releaseRepository = true
+                        username = (findProperty('sonatypeUsername') ?: System.getenv('OSSRH_USERNAME'))
+                        password = (findProperty('sonatypePassword') ?: System.getenv('OSSRH_PASSWORD'))
+                    }
                 }
             }
             */

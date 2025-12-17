@@ -9,6 +9,7 @@ import org.interledger.openpayments.model.common.ApiError;
 import org.interledger.openpayments.model.grant.Client;
 import org.interledger.openpayments.model.grant.Grant;
 import org.interledger.openpayments.model.incomingpayment.IncomingPayment;
+import org.interledger.openpayments.model.key.Ed25519Keys;
 import org.interledger.openpayments.model.outgoingpayment.OutgoingPayment;
 import org.interledger.openpayments.model.payment.Payment;
 import org.interledger.openpayments.model.quote.Quote;
@@ -72,6 +73,7 @@ public class OpenPaymentsHttpClientTest {
   private ListAppender<ILoggingEvent> appender;
   private static OpenPaymentsHttpClient opClient;
   private static WalletAddress walletAddress;
+  private static Ed25519Keys keys;
   private static Grant grantForIncomingPayment;
   private static Grant grantForQuote;
   private static IncomingPayment incomingPayment;
@@ -93,6 +95,7 @@ public class OpenPaymentsHttpClientTest {
     grantForIncomingPayment = createGrantForIncomingPayment();
     grantForQuote = createGrantForQuote();
     walletAddress = createWalletAddress();
+    keys = createKeys();
     incomingPayment = createIncomingPayment();
     quote = createQuote();
     outgoingPayment = createOutgoingPayment();
@@ -205,6 +208,10 @@ public class OpenPaymentsHttpClientTest {
               "getWalletAddress",
               () -> opClient.getWalletAddress("https://wallet.example.com"),
               walletAddress),
+          arg(
+                  "getKeys",
+                  () -> opClient.getKeys("https://wallet.example.com"),
+                  keys),
           arg(
               "createGrantIncomingPayment",
               () -> opClient.createGrantIncomingPayment(walletAddress),

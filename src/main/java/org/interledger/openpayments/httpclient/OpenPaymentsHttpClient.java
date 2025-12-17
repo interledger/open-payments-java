@@ -9,6 +9,7 @@ import org.interledger.openpayments.model.IAuthServer;
 import org.interledger.openpayments.model.common.Amount;
 import org.interledger.openpayments.model.grant.*;
 import org.interledger.openpayments.model.incomingpayment.IncomingPayment;
+import org.interledger.openpayments.model.key.Ed25519Keys;
 import org.interledger.openpayments.model.outgoingpayment.OutgoingPayment;
 import org.interledger.openpayments.model.outgoingpayment.OutgoingPaymentRequest;
 import org.interledger.openpayments.model.payment.Payment;
@@ -117,6 +118,28 @@ public class OpenPaymentsHttpClient implements IOpenPaymentsClient {
                 .build();
 
         return this.send(request, WalletAddress.class);
+    }
+
+    /**
+     * Retrieves Ed25519 keys from the provided URL.
+     *
+     * @param url the URL from which to fetch the Ed25519 keys. If the URL does not end with a "/",
+     *            it will be appended automatically.
+     * @return an instance of {@code Ed25519Keys} containing the fetched keys.
+     */
+    @Override
+    public Ed25519Keys getKeys(String url) {
+        log.debug("getKeys: {}", url);
+        if (url != null && !url.endsWith("/")) url = String.format("%s/", url);
+        var urlObj = UtilGlobal.toUri(String.format("%sjwks.json", url));
+
+        var request = HttpRequest.newBuilder(urlObj)
+                .GET()
+                .header(ACCEPT_HEADER.toLowerCase(), APPLICATION_JSON)
+                .timeout(Duration.of(this.options.getTimeOutInSeconds(), SECONDS))
+                .build();
+
+        return this.send(request, Ed25519Keys.class);
     }
 
     /**

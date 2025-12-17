@@ -4,6 +4,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.interledger.openpayments.httpclient.OpenPaymentsHttpClient;
 import org.interledger.openpayments.model.common.Amount;
 import org.interledger.openpayments.model.grant.Grant;
+import org.interledger.openpayments.model.key.Ed25519PublicKey;
 import org.interledger.openpayments.util.UtilGlobal;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -78,6 +79,38 @@ class InterledgerApiClientHttpImpl {
         // Auth and Resource server with tenant:
         Assertions.assertEquals("https://auth.interledger-test.dev/f537937b-7016-481b-b655-9f0d1014822c", walletAdd.getAuthServer());
         Assertions.assertEquals("https://ilp.interledger-test.dev/f537937b-7016-481b-b655-9f0d1014822c", walletAdd.getResourceServer());
+    }
+
+    /**
+     * Tests the retrieval of Ed25519 keys for a client wallet address.
+     *
+     * This test verifies the correct fetching and validation of Ed25519 keys using the
+     * client wallet address obtained from the test configuration. The following assertions
+     * are performed as part of the validation process:
+     *
+     * - Ensures the retrieved key collection is not null.
+     * - Confirms that at least one key exists in the collection.
+     * - Validates the algorithm ('alg') and curve ('crv') of the first key to ensure they
+     *   match the expected values ("EdDSA" for the algorithm and "Ed25519" for the curve).
+     *
+     * The test relies on {@link TestHelper#getClientWalletAddress()} to fetch the client wallet
+     * address required for the retrieval process.
+     *
+     * Assertions:
+     * - {@code assertNotNull(keys)}: Validates that the key collection is not null.
+     * - {@code assertNotNull(firstKey)}: Ensures that the first key in the collection is not null.
+     * - {@code Assertions.assertEquals("EdDSA", firstKey.getAlg())}: Validates the algorithm.
+     * - {@code Assertions.assertEquals("Ed25519", firstKey.getCrv())}: Validates the curve type.
+     */
+    @Test
+    public void getKeys() {
+        var keys = this.client.getKeys(TestHelper.getClientWalletAddress());
+        assertNotNull(keys);
+        var firstKey = (Ed25519PublicKey)keys.getKeys().toArray()[0];
+        assertNotNull(firstKey);
+
+        Assertions.assertEquals("EdDSA", firstKey.getAlg());
+        Assertions.assertEquals("Ed25519", firstKey.getCrv());
     }
 
     /**

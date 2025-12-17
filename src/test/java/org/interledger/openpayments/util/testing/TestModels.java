@@ -1,16 +1,19 @@
 package org.interledger.openpayments.util.testing;
 
-import java.math.BigDecimal;
-import java.net.URI;
-import java.time.Instant;
-import java.util.Set;
 import org.interledger.openpayments.model.common.Amount;
 import org.interledger.openpayments.model.grant.*;
 import org.interledger.openpayments.model.incomingpayment.IncomingPayment;
+import org.interledger.openpayments.model.key.Ed25519Keys;
+import org.interledger.openpayments.model.key.Ed25519PublicKey;
 import org.interledger.openpayments.model.outgoingpayment.OutgoingPayment;
 import org.interledger.openpayments.model.payment.Payment;
 import org.interledger.openpayments.model.quote.Quote;
 import org.interledger.openpayments.model.walletaddress.WalletAddress;
+
+import java.math.BigDecimal;
+import java.net.URI;
+import java.time.Instant;
+import java.util.Set;
 
 /**
  * TestModels - Shared test data factory for Open Payments objects.
@@ -35,6 +38,19 @@ public final class TestModels {
         walletAddress.setAssetScale(1);
         walletAddress.setAssetCode("USD");
         return walletAddress;
+    }
+
+    public static Ed25519Keys createKeys() {
+        var keys = new Ed25519Keys();
+        var key = new Ed25519PublicKey();
+        key.setAlg("Ed25519");
+        key.setX("X");
+        key.setKid("kid");
+        key.setCrv("crv");
+        key.setUse("sign");
+        key.setKty("kty");
+        keys.setKeys(Set.of(key));
+        return keys;
     }
 
     public static Quote createQuote() {
