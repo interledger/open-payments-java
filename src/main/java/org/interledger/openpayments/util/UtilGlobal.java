@@ -23,6 +23,14 @@ import static java.util.Objects.isNull;
  */
 @NoArgsConstructor
 public class UtilGlobal {
+    /**
+     * Represents an immutable, empty string value.
+     *
+     * This constant can be used as a placeholder or default value
+     * for operations or fields requiring an empty string.
+     * It is particularly useful for avoiding null values when
+     * working with string operations.
+     */
     public static final String EMPTY = "";
     private static final String PEM_PVT_HEAD = "-----BEGIN PRIVATE KEY-----";
     private static final String PEM_PVT_FOOT = "-----END PRIVATE KEY-----";

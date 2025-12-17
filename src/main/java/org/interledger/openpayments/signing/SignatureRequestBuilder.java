@@ -72,7 +72,6 @@ public class SignatureRequestBuilder {
 
     /**
      * Constructs a new SignatureRequestBuilder with the specified private key and key identifier.
-     *
      * @param privateKey the private key used for signing
      * @param keyId the identifier of the key
      */
@@ -82,7 +81,6 @@ public class SignatureRequestBuilder {
 
     /**
      * Sets the HTTP method for the request.
-     *
      * @param value HTTP method (GET, POST, PUT, DELETE, HEAD)
      * @return this builder for method chaining
      * @throws IllegalArgumentException if method is null, blank, or not allowed
@@ -120,7 +118,6 @@ public class SignatureRequestBuilder {
 
     /**
      * Sets the HTTP method for the request to PUT and serializes the body as JSON.
-     *
      * @param body the object to serialize as the JSON request body
      * @return this builder instance for method chaining
      * @throws IllegalArgumentException if the method is already set or if body serialization fails
@@ -132,7 +129,6 @@ public class SignatureRequestBuilder {
 
     /**
      * Sets the HTTP method for the request to PUT without the request body.
-     *
      * @return this builder instance for method chaining
      * @throws IllegalArgumentException if the method is already set
      */

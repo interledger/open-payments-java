@@ -22,7 +22,6 @@ import java.util.Set;
  */
 @Data
 public class IncomingPayment {
-
     /**
      * Unique identifier for this incoming payment.
      *

@@ -2,13 +2,15 @@ plugins {
     id 'java'
     id 'maven-publish'
     id 'signing'
+    // Publishes to Sonatype OSSRH / Maven Central
+    id 'io.github.gradle-nexus.publish-plugin' version '2.0.0'
 }
 
 group = 'org.interledger'
 version = project.findProperty('release.version') ?: '0.0.1-SNAPSHOT'
 
 // Set a proper artifact name
-def artifactName = 'interledger'
+def artifactName = 'open-payments'
 
 repositories {
     mavenCentral()
@@ -143,6 +145,7 @@ publishing {
 
             // Set the artifact name explicitly
             artifactId = artifactName
+            groupId = 'org.interledger'
 
             pom {
                 name = 'OpenPayments API Client'
@@ -165,6 +168,13 @@ publishing {
                         organization = 'Interledger'
                         organizationUrl = 'https://interledger.org'
                     }
+                    developer {
+                        id = 'oana-lolea'
+                        name = 'Oana Lolea'
+                        email = 'oana.lolea@breakpointit.eu'
+                        organization = 'Breakpoint'
+                        organizationUrl = 'https://breakpointit.eu'
+                    }
                 }
 
                 organization {
@@ -181,3 +191,63 @@ publishing {
         }
     }
 }
+
+// Configure artifact signing for Maven Central
+signing {
+    def signingKey = findProperty('signing.key') ?: System.getenv('SIGNING_KEY')
+    logger.info('PGP: Singing with key '+ signingKey)
+    def signingPassword = findProperty('signing.password') ?: System.getenv('SIGNING_PASSWORD')
+
+    if (signingKey && signingPassword) {
+        useInMemoryPgpKeys(signingKey as String, signingPassword as String)
+        useGpgCmd()
+        sign publishing.publications.maven
+    } else {
+        logger.lifecycle('Signing is not configured. Set signing.key and signing.password properties or env vars SIGNING_KEY and SIGNING_PASSWORD to enable signing.')
+    }
+}
+
+// Configure Nexus (Sonatype) publishing targets
+/*nexusPublishing {
+    repositories {
+        // OSSRH on the s01 host (most new projects use s01)
+        sonatype {
+            username = findProperty('sonatypeUsername') ?: System.getenv('OSSRH_USERNAME')
+            password = findProperty('sonatypePassword') ?: System.getenv('OSSRH_PASSWORD')
+            //nexusUrl.set(uri('https://s01.oss.sonatype.org/service/local/'))
+            //snapshotRepositoryUrl.set(uri('https://s01.oss.sonatype.org/content/repositories/snapshots/'))
+        }
+    }
+}*/
+
+jreleaser {
+    signing {
+        active = 'ALWAYS'
+        armored = true
+    }
+    deploy {
+        maven {
+            mavenCentral {
+                sonatype {
+                    active = 'ALWAYS'
+                    url = 'https://central.sonatype.com/api/v1/publisher'
+                    stagingRepository('build/staging-deploy')
+                }
+            }
+            /* Legacy OSSRH
+            nexus2 {
+                'maven-central' {
+                    active = 'ALWAYS'
+                    url = 'https://s01.oss.sonatype.org/service/local'
+                    snapshotUrl = 'https://s01.oss.sonatype.org/content/repositories/snapshots/'
+                    closeRepository = true
+                    releaseRepository = true
+                    stagingRepository('build/staging-deploy')
+                }
+            }
+            */
+        }
+    }
+}
+
+

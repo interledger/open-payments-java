@@ -17,7 +17,6 @@ import java.util.Set;
  * @param <T> The type of elements in the set.
  */
 public class OrderedSetSerializer<T> extends JsonSerializer<Set<T>> {
-
     /**
      * Serializes a {@link Set} into a JSON array. The elements in the set are
      * serialized in lexicographical order based on their string representation.
