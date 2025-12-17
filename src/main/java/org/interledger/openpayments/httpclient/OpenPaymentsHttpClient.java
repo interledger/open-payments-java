@@ -299,7 +299,7 @@ public class OpenPaymentsHttpClient implements IOpenPaymentsClient {
                 .target(sender.getAuthServer())
                 .getRequest(this.options);
 
-        return send(request, OutgoingPayment.class);
+        return this.send(request, OutgoingPayment.class);
     }
 
     /**
@@ -353,7 +353,7 @@ public class OpenPaymentsHttpClient implements IOpenPaymentsClient {
         var request = new SignatureRequestBuilder(this.privateKey, this.keyId, this.mapper)
                 .POST(outgoingPayment)
                 .target(this.buildResourceUrl(sender.getResourceServerAsURI(), ResourcePath.OUTGOING_PAYMENTS))
-                .accessToken(extractAccessToken(finalized))
+                .accessToken(this.extractAccessToken(finalized))
                 .getRequest(this.options);
 
         return this.send(request, Payment.class);
