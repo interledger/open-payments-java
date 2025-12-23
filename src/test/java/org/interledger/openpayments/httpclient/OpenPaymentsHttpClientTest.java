@@ -33,6 +33,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.security.NoSuchAlgorithmException;
+import java.util.Optional;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
@@ -225,7 +226,9 @@ public class OpenPaymentsHttpClientTest {
           arg("createGrantQuote", () -> opClient.createGrantQuote(walletAddress), grantForQuote),
           arg(
               "createQuote",
-              () -> opClient.createQuote("quote-token-123", walletAddress, incomingPayment),
+              () -> opClient.createQuote(
+                      "quote-token-123", walletAddress, incomingPayment, Optional.empty(), Optional.empty()
+              ),
               quote),
           arg(
               "createGrantContinuation",

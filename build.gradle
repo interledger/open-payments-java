@@ -1,9 +1,8 @@
 plugins {
     id 'java'
     id 'maven-publish'
-    id 'signing'
     // JReleaser for publishing to Maven Central
-    id 'org.jreleaser' version '1.14.0'
+    id 'org.jreleaser' version '1.21.0'
 }
 
 group = 'org.interledger'
@@ -104,7 +103,6 @@ dependencies {
     implementation "com.fasterxml.jackson.core:jackson-annotations:${jacksonVersion}"
     implementation "com.fasterxml.jackson.core:jackson-databind:${jacksonVersion}"
     implementation "com.fasterxml.jackson.datatype:jackson-datatype-jsr310:${jacksonVersion}"
-    //TODO implementation 'com.google.code.findbugs:jsr305:3.0.2'
 
     // Unit tests
     testCompileOnly "org.projectlombok:lombok:${lombokVersion}"
@@ -130,31 +128,19 @@ dependencies {
 publishing {
     repositories {
         maven {
-            name = 'staging'
             url = layout.buildDirectory.dir('staging-deploy')
         }
     }
-    /*repositories {
-        // Private internal repository for interledger/packages
-        maven {
-            name = 'Private'
-            url = uri('https://maven.pkg.github.com/interledger/packages')
-            credentials {
-                username = project.findProperty('github.username') ?: System.getenv('GITHUB_ACTOR')
-                password = project.findProperty('github.token') ?: System.getenv('PACKAGES_TOKEN')
-            }
-        }
-    }*/
     publications {
         maven(MavenPublication) {
             from components.java
 
             // Set the artifact name explicitly
-            artifactId = artifactName
             groupId = 'org.interledger'
+            artifactId = artifactName
 
             pom {
-                name = 'OpenPayments API Client'
+                name = artifactName
                 description = 'Java client for Interledger Open Payments protocol'
                 url = 'https://github.com/interledger/open-payments-java'
 
@@ -209,9 +195,6 @@ jreleaser {
         active = 'ALWAYS'
         armored = true
         mode = 'MEMORY'
-        // Expect ASCII-armored private key content
-        secretKey = (findProperty('signing.key') ?: System.getenv('SIGNING_KEY'))
-        passphrase = (findProperty('signing.password') ?: System.getenv('SIGNING_PASSWORD'))
     }
     deploy {
         maven {
@@ -221,37 +204,10 @@ jreleaser {
                     active = 'ALWAYS'
                     url = 'https://central.sonatype.com/api/v1/publisher'
                     stagingRepository('build/staging-deploy')
-                    username = (findProperty('sonatypeUsername') ?: System.getenv('OSSRH_USERNAME'))
-                    password = (findProperty('sonatypePassword') ?: System.getenv('OSSRH_PASSWORD'))
+                    username = (findProperty('JRELEASER_MAVENCENTRAL_USERNAME') ?: System.getenv('JRELEASER_MAVENCENTRAL_USERNAME'))
+                    password = (findProperty('JRELEASER_MAVENCENTRAL_PASSWORD') ?: System.getenv('JRELEASER_MAVENCENTRAL_PASSWORD'))
                 }
             }
-
-            //repositories {
-                /*mavenCentral {
-                    active = 'ALWAYS'
-                    // Default URL for Central Portal publisher API
-                    url = 'https://central.sonatype.com/api/v1/publisher'
-                    // Credentials: prefer env vars, fallback to gradle.properties
-                    username = (findProperty('sonatypeUsername') ?: System.getenv('OSSRH_USERNAME'))
-                    password = (findProperty('sonatypePassword') ?: System.getenv('OSSRH_PASSWORD'))
-                }*/
-            //}
-            // If you must use legacy OSSRH (nexus2), uncomment and configure below
-            /*
-            repositories {
-                nexus2 {
-                    mavenCentral {
-                        active = 'ALWAYS'
-                        url = 'https://s01.oss.sonatype.org/service/local'
-                        snapshotUrl = 'https://s01.oss.sonatype.org/content/repositories/snapshots/'
-                        closeRepository = true
-                        releaseRepository = true
-                        username = (findProperty('sonatypeUsername') ?: System.getenv('OSSRH_USERNAME'))
-                        password = (findProperty('sonatypePassword') ?: System.getenv('OSSRH_PASSWORD'))
-                    }
-                }
-            }
-            */
         }
     }
 }

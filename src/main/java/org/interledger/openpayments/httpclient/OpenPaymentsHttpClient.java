@@ -28,6 +28,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.security.PrivateKey;
 import java.time.Duration;
+import java.util.Optional;
 import java.util.Set;
 
 import static java.time.temporal.ChronoUnit.SECONDS;
@@ -50,7 +51,6 @@ import static org.interledger.openpayments.util.UtilGlobal.*;
 @RequiredArgsConstructor
 @Slf4j
 public class OpenPaymentsHttpClient implements IOpenPaymentsClient {
-    private static final String ILP_METHOD = "ilp";
     
     private final Client clientWallet;
     private final PrivateKey privateKey;
@@ -225,7 +225,7 @@ public class OpenPaymentsHttpClient implements IOpenPaymentsClient {
     }
 
     /**
-     * @see IOpenPaymentsClient#createQuote(String, WalletAddress, IncomingPayment)
+     * @see IOpenPaymentsClient#createQuote(String, WalletAddress, IncomingPayment, Optional, Optional)
      * @param quoteToken a unique token representing the quote request. This token
      *                   is used to identify and secure the quote creation process.
      * @param sender the wallet address of the payment sender. This identifies the
@@ -238,8 +238,14 @@ public class OpenPaymentsHttpClient implements IOpenPaymentsClient {
      * @return Quote
      */
     @Override
-    public Quote createQuote(String quoteToken, WalletAddress sender, IncomingPayment incomingPayment) {
-        log.debug("createQuote: ({},{})", sender, incomingPayment);
+    public Quote createQuote(
+            String quoteToken,
+            WalletAddress sender,
+            IncomingPayment incomingPayment,
+            Optional<Amount> debitAmount,
+            Optional<Amount> receiveAmount
+    ) {
+        log.debug("createQuote: ({},{},{},{})", sender, incomingPayment, debitAmount, receiveAmount);
 
         ensureNotNullOrEmpty(quoteToken, "Quote token cannot be null or empty");
         ensureNotNull(sender, "PaymentPointer sender cannot be null");
@@ -248,13 +254,38 @@ public class OpenPaymentsHttpClient implements IOpenPaymentsClient {
         var quoteRequest = QuoteRequest.build(
                 sender.getIdAsURI(),
                 incomingPayment.getId().toString(),
-                ILP_METHOD
+                debitAmount,
+                receiveAmount,
+                QuoteRequest.ILP_METHOD
         );
 
         var request = new SignatureRequestBuilder(this.privateKey, this.keyId, this.mapper)
                 .POST(quoteRequest)
                 .target(this.buildResourceUrl(sender.getResourceServerAsURI(), ResourcePath.QUOTES))
                 .accessToken(quoteToken)
+                .getRequest(this.options);
+
+        return this.send(request, Quote.class);
+    }
+
+    /**
+     * Retrieves a Quote object from the specified URI using the provided grant for authentication.
+     *
+     * @param quoteUri The URI from which the quote will be fetched. Must not be null.
+     * @param grant The authentication grant used to access the specified URI. Must not be null.
+     * @return A Quote object representing the data retrieved from the specified URI.
+     * @throws NullPointerException If either {@code quoteUri} or {@code grant} are null.
+     */
+    @Override
+    public Quote getQuote(URI quoteUri, Grant grant) {
+        log.debug("getQuote: {}", quoteUri);
+        UtilGlobal.ensureNotNull(quoteUri, "quoteUri cannot be null");
+        UtilGlobal.ensureNotNull(grant, "Grant cannot be null");
+
+        var request = new SignatureRequestBuilder(this.privateKey, this.keyId, this.mapper)
+                .GET()
+                .target(quoteUri)
+                .accessToken(this.extractAccessToken(grant))
                 .getRequest(this.options);
 
         return this.send(request, Quote.class);
@@ -402,19 +433,19 @@ public class OpenPaymentsHttpClient implements IOpenPaymentsClient {
     /**
      * Retrieves an incoming payment based on the provided payment details and grant.
      *
-     * @param payment the {@code IncomingPayment} object containing the payment details; must not be null
+     * @param incomingPaymentUri the {@code IncomingPayment} object containing the payment details; must not be null
      * @param grant the {@code Grant} object representing the access grant; must not be null
      * @return the {@code IncomingPayment} object fetched from the server based on the given payment details
      */
     @Override
-    public IncomingPayment getIncomingPayment(IncomingPayment payment, Grant grant) {
-        log.debug("getIncomingPayment: {}", payment);
-        UtilGlobal.ensureNotNull(payment, "IncomingPayment cannot be null");
+    public IncomingPayment getIncomingPayment(URI incomingPaymentUri, Grant grant) {
+        log.debug("getIncomingPayment: {}", incomingPaymentUri);
+        UtilGlobal.ensureNotNull(incomingPaymentUri, "incomingPaymentUri cannot be null");
         UtilGlobal.ensureNotNull(grant, "Grant cannot be null");
 
         var request = new SignatureRequestBuilder(this.privateKey, this.keyId, this.mapper)
                 .GET()
-                .target(payment.getId())
+                .target(incomingPaymentUri)
                 .accessToken(this.extractAccessToken(grant))
                 .getRequest(this.options);
 

@@ -2,8 +2,12 @@ package org.interledger.openpayments.model.quote;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
+import org.interledger.openpayments.exception.OpenPaymentsClientException;
+import org.interledger.openpayments.model.common.Amount;
+import org.interledger.openpayments.util.UtilGlobal;
 
 import java.net.URI;
+import java.util.Optional;
 
 import static org.interledger.openpayments.util.UtilGlobal.ensureNotNull;
 import static org.interledger.openpayments.util.UtilGlobal.ensureNotNullOrEmpty;
@@ -27,6 +31,7 @@ import static org.interledger.openpayments.util.UtilGlobal.ensureNotNullOrEmpty;
  */
 @Data
 public class QuoteRequest {
+    public static final String ILP_METHOD = "ilp";
     /**
      * The wallet address where the quote will be created.
      *
@@ -78,27 +83,74 @@ public class QuoteRequest {
     private String method;
 
     /**
+     * The amount that will be debited from the sender's account.
+     *
+     * <p>This is the total amount that will be deducted from the sender,
+     * including the base payment amount plus any fees, currency conversion
+     * costs, or other charges. This represents the "total cost" of the
+     * payment to the sender.
+     *
+     * <p>The debit amount is calculated based on the quote request parameters
+     * and current exchange rates/fees at the time of quote creation.
+     */
+    @JsonProperty(value = "debitAmount")
+    private Amount debitAmount;
+
+    /**
+     * The amount that will be received by the recipient.
+     *
+     * <p>This is the amount that will actually be credited to the recipient's
+     * account after all fees, currency conversions, and other deductions.
+     * This represents the "net amount" that the recipient will receive.
+     *
+     * <p>The receive amount may be different from the debit amount due to
+     * fees, currency exchange rates, or other factors in the payment routing.
+     */
+    @JsonProperty(value = "receiveAmount")
+    private Amount receiveAmount;
+
+    /**
      * Creates a new QuoteRequest with the specified parameters.
      *
      * <p>This factory method provides a convenient way to construct a quote
      * request with all required fields. The resulting quote request can be
      * used to request a quote from an Interledger server.
      *
-     * @param walletAddress the sender's wallet address where the quote will be created
-     * @param receiver      the receiver (incoming payment) endpoint URI as a string
+     * @param senderWalletAddress the sender's wallet address where the quote will be created
+     * @param receiverIncPayId      the receiver (incoming payment) endpoint URI as a string
      * @param method        the payment method to be used (typically "ilp")
      * @return a new QuoteRequest instance with the specified parameters
      * @throws IllegalArgumentException if any parameter is null or invalid
      */
-    public static QuoteRequest build(URI walletAddress, String receiver, String method) {
-        ensureNotNull(walletAddress, "walletAddress cannot be null.");
-        ensureNotNullOrEmpty(receiver, "receiver cannot be null or empty.");
+    public static QuoteRequest build(
+            URI senderWalletAddress,
+            String receiverIncPayId,
+            Optional<Amount> debitAmount,
+            Optional<Amount> receiveAmount,
+            String method
+    ) {
+        ensureNotNull(debitAmount, "debitAmount cannot be null.");
+        ensureNotNull(receiveAmount, "receiveAmount cannot be null.");
+        ensureNotNull(senderWalletAddress, "walletAddress cannot be null.");
+        ensureNotNullOrEmpty(receiverIncPayId, "receiver cannot be null or empty.");
         ensureNotNullOrEmpty(method, "method cannot be null or empty.");
 
+        if (debitAmount.isPresent() && receiveAmount.isPresent()) {
+            throw new OpenPaymentsClientException(
+                    "Either debitAmount or receiveAmount must be null, both should not be present."
+            );
+        }
+
         QuoteRequest quoteRequest = new QuoteRequest();
-        quoteRequest.walletAddress = walletAddress;
-        quoteRequest.receiver = receiver;
+        quoteRequest.walletAddress = senderWalletAddress;
+        quoteRequest.receiver = receiverIncPayId;
+
+        if (UtilGlobal.isNullOrEmpty(method)) {
+            method = ILP_METHOD;
+        }
         quoteRequest.method = method;
+        quoteRequest.receiveAmount = receiveAmount.orElse(null);
+        quoteRequest.debitAmount = debitAmount.orElse(null);
         return quoteRequest;
     }
 }

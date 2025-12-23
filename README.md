@@ -74,12 +74,12 @@ git clone --recurse-submodules git@github.com:interledger/open-payments-java.git
 
 ### Environment Setup
 
-Maven dependency:
+Maven dependency (Please see [Maven Central](https://central.sonatype.com/artifact/org.interledger/open-payments) or [Maven Repository](https://mvnrepository.com/artifact/org.interledger/open-payments) for the latest version):
 ```xml
 <dependency>
     <groupId>org.interledger</groupId>
     <artifactId>open-payments</artifactId>
-    <version>0.0.1</version>
+    <version>1.0.1</version>
 </dependency>
 ```
 

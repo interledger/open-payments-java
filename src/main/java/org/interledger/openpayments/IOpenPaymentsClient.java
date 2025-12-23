@@ -12,6 +12,7 @@ import org.interledger.openpayments.model.walletaddress.WalletAddress;
 
 import java.math.BigDecimal;
 import java.net.URI;
+import java.util.Optional;
 
 /**
  * Interledger Open Payments Client.
@@ -102,11 +103,28 @@ public interface IOpenPaymentsClient {
      *                        payment details for which the quote is being created.
      *                        This includes information such as payment amount,
      *                        recipient details, and associated metadata.
+     * @param debitAmount the OPTIONAL amount to debit from the sender's wallet account.
+     * @param receiveAmount the OPTIONAL amount to be received by the payee's wallet account.
      * @return a Quote object containing the details of the created payment quote.
      *         It includes information such as the quoted payment amount, currency
      *         details, expiration time, and any applicable terms or fees.
      */
-    Quote createQuote(String quoteToken, WalletAddress sender, IncomingPayment incomingPayment);
+    Quote createQuote(
+            String quoteToken,
+            WalletAddress sender,
+            IncomingPayment incomingPayment,
+            Optional<Amount> debitAmount,
+            Optional<Amount> receiveAmount
+    );
+
+    /**
+     * Retrieves a quote based on the provided URI and grant request.
+     *
+     * @param quoteUri the URI pointing to the desired quote resource
+     * @param grantRequest the grant request containing necessary permissions or details for accessing the quote
+     * @return the Quote object retrieved from the specified URI
+     */
+    Quote getQuote(URI quoteUri, Grant grantRequest);
 
     /**
      * Creates a continuation grant for an outgoing payment request.
@@ -128,7 +146,12 @@ public interface IOpenPaymentsClient {
      *         interaction details, or an access token based on the authorization
      *         flow.
      */
-    OutgoingPayment createGrantContinuation(WalletAddress sender, Amount debitAmount, URI returnUrl, String nonce);
+    OutgoingPayment createGrantContinuation(
+            WalletAddress sender,
+            Amount debitAmount,
+            URI returnUrl,
+            String nonce
+    );
 
     /**
      * Finalizes the process for creating a grant associated with an outgoing payment.
@@ -180,13 +203,13 @@ public interface IOpenPaymentsClient {
      * It can be called multiple times to poll for payment status updates until the
      * payment is marked as completed.
      *
-     * @param incomingPayment the incoming payment to check
+     * @param incomingPaymentUri the incoming payment URI to retrieve all the payment details
      * @param grantRequest the access grant that provides permission to read the payment
      * @return current payment status including completion state and received amount
      * @see IncomingPayment
      * @see Grant
      */
-    IncomingPayment getIncomingPayment(IncomingPayment incomingPayment, Grant grantRequest);
+    IncomingPayment getIncomingPayment(URI incomingPaymentUri, Grant grantRequest);
 
     /**
      * Completes the process for incoming payment creation.
