@@ -3,6 +3,7 @@ package org.interledger.openpayments.httpclient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.interledger.openpayments.IOpenPaymentsClient;
+import org.interledger.openpayments.exception.OpenPaymentsAPIException;
 import org.interledger.openpayments.exception.OpenPaymentsClientException;
 import org.interledger.openpayments.mapper.OpenPaymentsObjectMapper;
 import org.interledger.openpayments.model.IAuthServer;
@@ -360,6 +361,30 @@ public class OpenPaymentsHttpClient implements IOpenPaymentsClient {
     }
 
     /**
+     * Cancels a previously issued grant by sending a DELETE request to the access
+     * continuation URI associated with the grant. This method ensures that the grant
+     * is not null before proceeding, and uses a signature request to securely perform the operation.
+     *
+     * @param grant The Grant object representing the access to be canceled. This object
+     *              must not be null and should contain the required URI and access token
+     *              information for the cancellation.
+     */
+    @Override
+    public void createGrantCancel(Grant grant) {
+        log.debug("createGrantCancel: ({})", grant);
+
+        ensureNotNull(grant, "Grant cannot be null");
+
+        var request = new SignatureRequestBuilder(this.privateKey, this.keyId, this.mapper)
+                .DELETE()
+                .target(grant.getAccessContinue().getUri())
+                .accessToken(this.extractAccessToken(grant))
+                .getRequest(this.options);
+
+        this.send(request);
+    }
+
+    /**
      * 
      * @param finalized the finalized grant object representing the authorization to perform the payment.
      *                  This grant includes the necessary access credentials and authorization details.
@@ -506,6 +531,33 @@ public class OpenPaymentsHttpClient implements IOpenPaymentsClient {
 
             // deserialize
             return this.mapper.readValue(response.body(), responseType);
+        } catch (IOException e) {
+            throw new OpenPaymentsClientException(IO_ERROR, e.getMessage(), e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new OpenPaymentsClientException(INTERRUPTED, e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Sends an HTTP request using the configured HTTP client and processes the response.
+     * Logs the outgoing request before sending and throws an exception if the response status code is not 204.
+     *
+     * @param request the {@code HttpRequest} to be sent using the HTTP client.
+     * @throws OpenPaymentsAPIException if the response status code is not 204.
+     * @throws OpenPaymentsClientException if there is an I/O error during the request or if the thread is interrupted.
+     */
+    public void send(HttpRequest request) {
+        try {
+            this.httpLogger.logRequest(request);
+            HttpResponse<Void> response = this.client.send(request, HttpResponse.BodyHandlers.discarding());
+
+            if (response.statusCode() != 204) {
+                throw new OpenPaymentsAPIException(
+                        response.statusCode(),
+                        "Unable to send! Status code: " + response.statusCode()
+                );
+            }
         } catch (IOException e) {
             throw new OpenPaymentsClientException(IO_ERROR, e.getMessage(), e);
         } catch (InterruptedException e) {

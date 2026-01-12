@@ -170,6 +170,12 @@ public interface IOpenPaymentsClient {
     Grant createGrantFinalize(OutgoingPayment outgoingPayment, String interactRef);
 
     /**
+     * Cancel a grant.
+     * @param grant the grant object that represents the grant to be canceled
+     */
+    void createGrantCancel(Grant grant);
+
+    /**
      * Finalizes and processes an outgoing payment using the given grant, sender's wallet, and payment quote.
      * This method completes the payment transaction based on the pre-established quote and authorization grant.
      *
