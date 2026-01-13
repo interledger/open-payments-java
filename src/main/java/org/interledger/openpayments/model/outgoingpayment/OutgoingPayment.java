@@ -5,6 +5,8 @@ import lombok.Data;
 import org.interledger.openpayments.model.grant.AccessContinue;
 import org.interledger.openpayments.model.grant.InteractContinue;
 
+import java.net.URI;
+
 /**
  * Represents the response from creating an outgoing payment request.
  * 
@@ -26,6 +28,61 @@ import org.interledger.openpayments.model.grant.InteractContinue;
  */
 @Data
 public class OutgoingPayment {
+    /**
+     * Unique identifier for this outgoing payment.
+     *
+     * <p>This URI uniquely identifies the outgoing payment resource and is used
+     * by senders to reference this payment destination when creating quotes
+     * and incoming payments.
+     *
+     * <p>Example: "<a href="https://ilp.interledger-test.dev/outgoing-payments/123e4567-e89b-12d3-a456-426614174000">
+     *     Outgoing Payment</a>"
+     */
+    @JsonProperty(value = "id", required = false)
+    private URI id;
+
+    /**
+     * The wallet address where this incoming payment is hosted.
+     *
+     * <p>This identifies the wallet or account that will receive the funds.
+     * It corresponds to the base wallet address used to create this payment.
+     */
+    @JsonProperty(value = "walletAddress", required = false)
+    private URI walletAddress;
+
+    /**
+     * Reference to the quote associated with the outgoing payment.
+     *
+     * This variable holds the URI identifying the quote that determines payment
+     * details such as amounts, fees, and terms. The quote provides a context
+     * for the payment, allowing the sender to understand the cost and conditions
+     * of the transaction before it is executed.
+     *
+     * The quote is optional, meaning some outgoing payments may not rely on
+     * pre-negotiated quotes. If present, the provided URI should resolve to
+     * a valid and accessible quote resource.
+     *
+     * The value may be serialized and deserialized as part of the outgoing
+     * payment object in data exchange formats like JSON.
+     */
+    @JsonProperty(value = "quoteId", required = false)
+    private URI quoteId;
+
+    /**
+     * Represents the URI providing information about a failed outgoing payment.
+     *
+     * <p>This field is used to indicate the reason or details associated with a failure
+     * during the processing of an outgoing payment. It typically contains a URI that
+     * points to a resource or document providing further context about the failure, such
+     * as an error description or diagnostic information.
+     *
+     * <p>The inclusion of this field is optional and its presence depends on whether
+     * the payment has encountered a failure during its lifecycle. If this field is absent,
+     * no failure has been recorded for the outgoing payment.
+     */
+    @JsonProperty(value = "failed", required = false)
+    private URI failed;
+
     /**
      * The continuation information for the access grant process.
      * 
