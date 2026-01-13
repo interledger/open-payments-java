@@ -52,7 +52,6 @@ import static org.interledger.openpayments.util.UtilGlobal.*;
 @RequiredArgsConstructor
 @Slf4j
 public class OpenPaymentsHttpClient implements IOpenPaymentsClient {
-    
     private final Client clientWallet;
     private final PrivateKey privateKey;
     private final String keyId;
