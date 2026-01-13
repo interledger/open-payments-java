@@ -508,6 +508,29 @@ public class OpenPaymentsHttpClient implements IOpenPaymentsClient {
     }
 
     /**
+     * Retrieves an outgoing payment using the specified URI and grant request.
+     *
+     * @param outgoingPaymentUri the URI of the outgoing payment to retrieve; must not be null
+     * @param grant the grant request containing authorization details; must not be null
+     * @return the {@code OutgoingPayment} object retrieved from the specified URI
+     * @throws NullPointerException if {@code outgoingPaymentUri} or {@code grantRequest} is null
+     */
+    @Override
+    public OutgoingPayment getOutgoingPayment(URI outgoingPaymentUri, Grant grant) {
+        log.debug("getOutgoingPayment: {}", outgoingPaymentUri);
+        UtilGlobal.ensureNotNull(outgoingPaymentUri, "outgoingPaymentUri cannot be null");
+        UtilGlobal.ensureNotNull(grant, "Grant cannot be null");
+
+        var request = new SignatureRequestBuilder(this.privateKey, this.keyId, this.mapper)
+                .GET()
+                .target(outgoingPaymentUri)
+                .accessToken(this.extractAccessToken(grant))
+                .getRequest(this.options);
+
+        return this.send(request, OutgoingPayment.class);
+    }
+
+    /**
      * Sends an HTTP request and processes the response, including deserialization into the specified type.
      * The method logs the request and response, handles HTTP errors, and attempts to deserialize
      * the response body into the provided response type. It throws exceptions if an error occurs

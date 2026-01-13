@@ -225,4 +225,15 @@ public interface IOpenPaymentsClient {
      * @return the completed incoming payment object
      */
     IncomingPayment createIncomingPaymentComplete(IncomingPayment incomingPaymentToComplete, Grant ipCompleteGrant);
+
+    /**
+     * Retrieves the current status of an outgoing payment.
+     *
+     * @param outgoingPaymentUri the outgoing payment URI to retrieve all the payment details
+     * @param grantRequest the access grant that provides permission to read the payment
+     * @return current payment status.
+     * @see OutgoingPayment
+     * @see Grant
+     */
+    OutgoingPayment getOutgoingPayment(URI outgoingPaymentUri, Grant grantRequest);
 }
