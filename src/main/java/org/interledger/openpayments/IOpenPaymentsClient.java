@@ -1,11 +1,15 @@
 package org.interledger.openpayments;
 
+import org.interledger.openpayments.model.IAuthServer;
+import org.interledger.openpayments.model.IResourceServer;
 import org.interledger.openpayments.model.common.Amount;
 import org.interledger.openpayments.model.grant.AccessAction;
 import org.interledger.openpayments.model.grant.Grant;
 import org.interledger.openpayments.model.incomingpayment.IncomingPayment;
+import org.interledger.openpayments.model.incomingpayment.IncomingPaymentsResult;
 import org.interledger.openpayments.model.key.Ed25519Keys;
 import org.interledger.openpayments.model.outgoingpayment.OutgoingPayment;
+import org.interledger.openpayments.model.outgoingpayment.OutgoingPaymentsResult;
 import org.interledger.openpayments.model.payment.Payment;
 import org.interledger.openpayments.model.quote.Quote;
 import org.interledger.openpayments.model.walletaddress.WalletAddress;
@@ -201,7 +205,12 @@ public interface IOpenPaymentsClient {
      * @param debitAmount the amount to be debited from the sender's wallet
      * @return a Payment object representing the completed and finalized payment transaction
      */
-    Payment createFinalizePayment(Grant finalized, WalletAddress sender, IncomingPayment incomingPayment, Amount debitAmount);
+    Payment createFinalizePayment(
+            Grant finalized,
+            WalletAddress sender,
+            IncomingPayment incomingPayment,
+            Amount debitAmount
+    );
 
     /**
      * Retrieves the current status of an incoming payment.
@@ -210,21 +219,35 @@ public interface IOpenPaymentsClient {
      * payment is marked as completed.
      *
      * @param incomingPaymentUri the incoming payment URI to retrieve all the payment details
-     * @param grantRequest the access grant that provides permission to read the payment
+     * @param grant the access grant that provides permission to read the payment
      * @return current payment status including completion state and received amount
      * @see IncomingPayment
      * @see Grant
      */
-    IncomingPayment getIncomingPayment(URI incomingPaymentUri, Grant grantRequest);
+    IncomingPayment getIncomingPayment(URI incomingPaymentUri, Grant grant);
+
+    /**
+     * Retrieves incoming payment data for a specified wallet address.
+     *
+     * @param resourceServer The resource server instance used to access payment data.
+     * @param walletAddressUri The URI representing the wallet address for which incoming payments are to be retrieved.
+     * @param grant The authorization grant used to ensure valid access to the resource server.
+     * @return An instance of IncomingPaymentsResult containing details of the retrieved incoming payments.
+     */
+    IncomingPaymentsResult getIncomingPayments(
+            IResourceServer resourceServer,
+            URI walletAddressUri,
+            Grant grant
+    );
 
     /**
      * Completes the process for incoming payment creation.
      *
      * @param incomingPaymentToComplete the incoming payment that needs to be completed
-     * @param ipCompleteGrant the grant associated with completing the incoming payment
+     * @param grant the grant associated with completing the incoming payment
      * @return the completed incoming payment object
      */
-    IncomingPayment createIncomingPaymentComplete(IncomingPayment incomingPaymentToComplete, Grant ipCompleteGrant);
+    IncomingPayment createIncomingPaymentComplete(IncomingPayment incomingPaymentToComplete, Grant grant);
 
     /**
      * Retrieves the current status of an outgoing payment.
@@ -236,4 +259,46 @@ public interface IOpenPaymentsClient {
      * @see Grant
      */
     OutgoingPayment getOutgoingPayment(URI outgoingPaymentUri, Grant grantRequest);
+
+    /**
+     * Retrieves a list of outgoing payments for the specified wallet address.
+     *
+     * @param resourceServer the resource server to use for fetching outgoing payment details
+     * @param walletAddressUri the URI representing the wallet address for which the outgoing payments will be retrieved
+     * @param grantRequest the grant request containing authentication and access details required for the operation
+     * @return an OutgoingPaymentsResult object containing the details of outgoing payments for the specified wallet address
+     */
+    OutgoingPaymentsResult getOutgoingPayments(
+            IResourceServer resourceServer,
+            URI walletAddressUri,
+            Grant grantRequest
+    );
+
+    /**
+     * Creates a new grant for an incoming payment request using the specified authentication server and grant ID.
+     *
+     * @param authServer the authorization server to be used for creating the grant
+     * @param tokenId the unique identifier for the token to be rotated.
+     * @param grant The grant used to authorize the rotation request.
+     * @return the rotated grant.
+     */
+    Grant rotateToken(
+            IAuthServer authServer,
+            String tokenId,
+            Grant grant
+    );
+
+    /**
+     * Revokes an existing token, rendering it invalid for future use.
+     * Tokens are usually accessible from issued grants, see {@code grant.getAccess().getToken()}
+     *
+     * @param authServer The authentication server responsible for managing the token lifecycle.
+     * @param tokenId The unique identifier of the token to be revoked.
+     * @param grant The grant used to authorize the revocation request.
+     */
+    void revokeToken(
+            IAuthServer authServer,
+            String tokenId,
+            Grant grant
+    );
 }
