@@ -3,14 +3,19 @@ package org.interledger.openpayments.httpclient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.interledger.openpayments.IOpenPaymentsClient;
+import org.interledger.openpayments.exception.OpenPaymentsAPIException;
 import org.interledger.openpayments.exception.OpenPaymentsClientException;
 import org.interledger.openpayments.mapper.OpenPaymentsObjectMapper;
 import org.interledger.openpayments.model.IAuthServer;
+import org.interledger.openpayments.model.IResourceServer;
 import org.interledger.openpayments.model.common.Amount;
 import org.interledger.openpayments.model.grant.*;
 import org.interledger.openpayments.model.incomingpayment.IncomingPayment;
+import org.interledger.openpayments.model.incomingpayment.IncomingPaymentsResult;
+import org.interledger.openpayments.model.key.Ed25519Keys;
 import org.interledger.openpayments.model.outgoingpayment.OutgoingPayment;
 import org.interledger.openpayments.model.outgoingpayment.OutgoingPaymentRequest;
+import org.interledger.openpayments.model.outgoingpayment.OutgoingPaymentsResult;
 import org.interledger.openpayments.model.payment.Payment;
 import org.interledger.openpayments.model.payment.PaymentRequest;
 import org.interledger.openpayments.model.quote.Quote;
@@ -27,6 +32,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.security.PrivateKey;
 import java.time.Duration;
+import java.util.Optional;
 import java.util.Set;
 
 import static java.time.temporal.ChronoUnit.SECONDS;
@@ -49,8 +55,6 @@ import static org.interledger.openpayments.util.UtilGlobal.*;
 @RequiredArgsConstructor
 @Slf4j
 public class OpenPaymentsHttpClient implements IOpenPaymentsClient {
-    private static final String ILP_METHOD = "ilp";
-    
     private final Client clientWallet;
     private final PrivateKey privateKey;
     private final String keyId;
@@ -117,6 +121,28 @@ public class OpenPaymentsHttpClient implements IOpenPaymentsClient {
                 .build();
 
         return this.send(request, WalletAddress.class);
+    }
+
+    /**
+     * Retrieves Ed25519 keys from the provided URL.
+     *
+     * @param url the URL from which to fetch the Ed25519 keys. If the URL does not end with a "/",
+     *            it will be appended automatically.
+     * @return an instance of {@code Ed25519Keys} containing the fetched keys.
+     */
+    @Override
+    public Ed25519Keys getKeys(String url) {
+        log.debug("getKeys: {}", url);
+        if (url != null && !url.endsWith("/")) url = String.format("%s/", url);
+        var urlObj = UtilGlobal.toUri(String.format("%sjwks.json", url));
+
+        var request = HttpRequest.newBuilder(urlObj)
+                .GET()
+                .header(ACCEPT_HEADER.toLowerCase(), APPLICATION_JSON)
+                .timeout(Duration.of(this.options.getTimeOutInSeconds(), SECONDS))
+                .build();
+
+        return this.send(request, Ed25519Keys.class);
     }
 
     /**
@@ -202,7 +228,7 @@ public class OpenPaymentsHttpClient implements IOpenPaymentsClient {
     }
 
     /**
-     * @see IOpenPaymentsClient#createQuote(String, WalletAddress, IncomingPayment)
+     * @see IOpenPaymentsClient#createQuote(String, WalletAddress, IncomingPayment, Optional, Optional)
      * @param quoteToken a unique token representing the quote request. This token
      *                   is used to identify and secure the quote creation process.
      * @param sender the wallet address of the payment sender. This identifies the
@@ -215,8 +241,14 @@ public class OpenPaymentsHttpClient implements IOpenPaymentsClient {
      * @return Quote
      */
     @Override
-    public Quote createQuote(String quoteToken, WalletAddress sender, IncomingPayment incomingPayment) {
-        log.debug("createQuote: ({},{})", sender, incomingPayment);
+    public Quote createQuote(
+            String quoteToken,
+            WalletAddress sender,
+            IncomingPayment incomingPayment,
+            Optional<Amount> debitAmount,
+            Optional<Amount> receiveAmount
+    ) {
+        log.debug("createQuote: ({},{},{},{})", sender, incomingPayment, debitAmount, receiveAmount);
 
         ensureNotNullOrEmpty(quoteToken, "Quote token cannot be null or empty");
         ensureNotNull(sender, "PaymentPointer sender cannot be null");
@@ -225,13 +257,38 @@ public class OpenPaymentsHttpClient implements IOpenPaymentsClient {
         var quoteRequest = QuoteRequest.build(
                 sender.getIdAsURI(),
                 incomingPayment.getId().toString(),
-                ILP_METHOD
+                debitAmount,
+                receiveAmount,
+                QuoteRequest.ILP_METHOD
         );
 
         var request = new SignatureRequestBuilder(this.privateKey, this.keyId, this.mapper)
                 .POST(quoteRequest)
                 .target(this.buildResourceUrl(sender.getResourceServerAsURI(), ResourcePath.QUOTES))
                 .accessToken(quoteToken)
+                .getRequest(this.options);
+
+        return this.send(request, Quote.class);
+    }
+
+    /**
+     * Retrieves a Quote object from the specified URI using the provided grant for authentication.
+     *
+     * @param quoteUri The URI from which the quote will be fetched. Must not be null.
+     * @param grant The authentication grant used to access the specified URI. Must not be null.
+     * @return A Quote object representing the data retrieved from the specified URI.
+     * @throws NullPointerException If either {@code quoteUri} or {@code grant} are null.
+     */
+    @Override
+    public Quote getQuote(URI quoteUri, Grant grant) {
+        log.debug("getQuote: {}", quoteUri);
+        UtilGlobal.ensureNotNull(quoteUri, "quoteUri cannot be null");
+        UtilGlobal.ensureNotNull(grant, "Grant cannot be null");
+
+        var request = new SignatureRequestBuilder(this.privateKey, this.keyId, this.mapper)
+                .GET()
+                .target(quoteUri)
+                .accessToken(this.extractAccessToken(grant))
                 .getRequest(this.options);
 
         return this.send(request, Quote.class);
@@ -276,7 +333,7 @@ public class OpenPaymentsHttpClient implements IOpenPaymentsClient {
                 .target(sender.getAuthServer())
                 .getRequest(this.options);
 
-        return send(request, OutgoingPayment.class);
+        return this.send(request, OutgoingPayment.class);
     }
 
     /**
@@ -306,6 +363,30 @@ public class OpenPaymentsHttpClient implements IOpenPaymentsClient {
     }
 
     /**
+     * Cancels a previously issued grant by sending a DELETE request to the access
+     * continuation URI associated with the grant. This method ensures that the grant
+     * is not null before proceeding, and uses a signature request to securely perform the operation.
+     *
+     * @param grant The Grant object representing the access to be canceled. This object
+     *              must not be null and should contain the required URI and access token
+     *              information for the cancellation.
+     */
+    @Override
+    public void createGrantCancel(Grant grant) {
+        log.debug("createGrantCancel: ({})", grant);
+
+        ensureNotNull(grant, "Grant cannot be null");
+
+        var request = new SignatureRequestBuilder(this.privateKey, this.keyId, this.mapper)
+                .DELETE()
+                .target(grant.getAccessContinue().getUri())
+                .accessToken(this.extractAccessToken(grant))
+                .getRequest(this.options);
+
+        this.send(request);
+    }
+
+    /**
      * 
      * @param finalized the finalized grant object representing the authorization to perform the payment.
      *                  This grant includes the necessary access credentials and authorization details.
@@ -330,7 +411,7 @@ public class OpenPaymentsHttpClient implements IOpenPaymentsClient {
         var request = new SignatureRequestBuilder(this.privateKey, this.keyId, this.mapper)
                 .POST(outgoingPayment)
                 .target(this.buildResourceUrl(sender.getResourceServerAsURI(), ResourcePath.OUTGOING_PAYMENTS))
-                .accessToken(extractAccessToken(finalized))
+                .accessToken(this.extractAccessToken(finalized))
                 .getRequest(this.options);
 
         return this.send(request, Payment.class);
@@ -379,19 +460,19 @@ public class OpenPaymentsHttpClient implements IOpenPaymentsClient {
     /**
      * Retrieves an incoming payment based on the provided payment details and grant.
      *
-     * @param payment the {@code IncomingPayment} object containing the payment details; must not be null
+     * @param incomingPaymentUri the {@code IncomingPayment} object containing the payment details; must not be null
      * @param grant the {@code Grant} object representing the access grant; must not be null
      * @return the {@code IncomingPayment} object fetched from the server based on the given payment details
      */
     @Override
-    public IncomingPayment getIncomingPayment(IncomingPayment payment, Grant grant) {
-        log.debug("getIncomingPayment: {}", payment);
-        UtilGlobal.ensureNotNull(payment, "IncomingPayment cannot be null");
+    public IncomingPayment getIncomingPayment(URI incomingPaymentUri, Grant grant) {
+        log.debug("getIncomingPayment: {}", incomingPaymentUri);
+        UtilGlobal.ensureNotNull(incomingPaymentUri, "incomingPaymentUri cannot be null");
         UtilGlobal.ensureNotNull(grant, "Grant cannot be null");
 
         var request = new SignatureRequestBuilder(this.privateKey, this.keyId, this.mapper)
                 .GET()
-                .target(payment.getId())
+                .target(incomingPaymentUri)
                 .accessToken(this.extractAccessToken(grant))
                 .getRequest(this.options);
 
@@ -399,17 +480,49 @@ public class OpenPaymentsHttpClient implements IOpenPaymentsClient {
     }
 
     /**
+     * Retrieves a list of incoming payments associated with a given wallet address.
+     *
+     * @param resourceServer The resource server providing the payment information.
+     *                        This parameter must not be null.
+     * @param walletAddressUri The URI of the wallet address for which incoming payments are being queried.
+     *                         This parameter must not be null.
+     * @param grant The grant object containing the necessary authorization details.
+     *              This parameter must not be null.
+     * @return An instance of {@code IncomingPaymentsResult} containing the list of incoming payments.
+     *         Never returns null, but the result may contain an empty list if no payments are found.
+     */
+    @Override
+    public IncomingPaymentsResult getIncomingPayments(
+            IResourceServer resourceServer,
+            URI walletAddressUri,
+            Grant grant
+    ) {
+        log.debug("getIncomingPayments: {}", walletAddressUri);
+        UtilGlobal.ensureNotNull(resourceServer, "ResourceServer cannot be null");
+        UtilGlobal.ensureNotNull(walletAddressUri, "WalletAddressUri cannot be null");
+        UtilGlobal.ensureNotNull(grant, "Grant cannot be null");
+
+        var request = new SignatureRequestBuilder(this.privateKey, this.keyId, this.mapper)
+                .GET()
+                .target(String.format("%s/incoming-payments?wallet-address=%s", resourceServer.getResourceServer(), walletAddressUri))
+                .accessToken(this.extractAccessToken(grant))
+                .getRequest(this.options);
+
+        return this.send(request, IncomingPaymentsResult.class);
+    }
+
+    /**
      * Completes the creation process of an incoming payment.
      *
      * @param incomingPaymentToComplete the incoming payment object to complete, must not be null
-     * @param ipCompleteGrant the grant containing necessary access rights to complete payment, must not be null
+     * @param grant the grant containing necessary access rights to complete payment, must not be null
      * @return the completed IncomingPayment object
      * @throws IllegalArgumentException if the incoming payment or its ID is null
      */
     @Override
     public IncomingPayment createIncomingPaymentComplete(
             IncomingPayment incomingPaymentToComplete,
-            Grant ipCompleteGrant
+            Grant grant
     ) {
         log.debug("createIncomingPaymentComplete: ({})", incomingPaymentToComplete);
 
@@ -423,9 +536,110 @@ public class OpenPaymentsHttpClient implements IOpenPaymentsClient {
         var request = new SignatureRequestBuilder(this.privateKey, this.keyId, this.mapper)
                 .POST()
                 .target(pathForPost)
-                .accessToken(this.extractAccessToken(ipCompleteGrant))
+                .accessToken(this.extractAccessToken(grant))
                 .getRequest(this.options);
         return this.send(request, IncomingPayment.class);
+    }
+
+    /**
+     * Retrieves an outgoing payment using the specified URI and grant request.
+     *
+     * @param outgoingPaymentUri the URI of the outgoing payment to retrieve; must not be null
+     * @param grant the grant request containing authorization details; must not be null
+     * @return the {@code OutgoingPayment} object retrieved from the specified URI
+     * @throws NullPointerException if {@code outgoingPaymentUri} or {@code grantRequest} is null
+     */
+    @Override
+    public OutgoingPayment getOutgoingPayment(URI outgoingPaymentUri, Grant grant) {
+        log.debug("getOutgoingPayment: {}", outgoingPaymentUri);
+        UtilGlobal.ensureNotNull(outgoingPaymentUri, "OutgoingPaymentUri cannot be null");
+        UtilGlobal.ensureNotNull(grant, "Grant cannot be null");
+
+        var request = new SignatureRequestBuilder(this.privateKey, this.keyId, this.mapper)
+                .GET()
+                .target(outgoingPaymentUri)
+                .accessToken(this.extractAccessToken(grant))
+                .getRequest(this.options);
+
+        return this.send(request, OutgoingPayment.class);
+    }
+
+    /**
+     * Retrieves outgoing payment information associated with a specified wallet address.
+     *
+     * @param resourceServer The resource server instance that provides endpoint details.
+     * @param walletAddressUri The URI of the wallet address for which outgoing payments are being fetched.
+     * @param grant The grant object containing the necessary credentials or tokens for authentication.
+     * @return An {@link OutgoingPaymentsResult} object containing the details of the outgoing payments.
+     * @throws IllegalArgumentException If the walletAddressUri or grant parameter is null.
+     */
+    @Override
+    public OutgoingPaymentsResult getOutgoingPayments(
+            IResourceServer resourceServer,
+            URI walletAddressUri,
+            Grant grant
+    ) {
+        log.debug("getOutgoingPayments: {}", walletAddressUri);
+        UtilGlobal.ensureNotNull(resourceServer, "ResourceServer cannot be null");
+        UtilGlobal.ensureNotNull(walletAddressUri, "WalletAddressUri cannot be null");
+        UtilGlobal.ensureNotNull(grant, "Grant cannot be null");
+
+        var request = new SignatureRequestBuilder(this.privateKey, this.keyId, this.mapper)
+                .GET()
+                .target(String.format("%s/outgoing-payments?wallet-address=%s", resourceServer.getResourceServer(), walletAddressUri))
+                .accessToken(this.extractAccessToken(grant))
+                .getRequest(this.options);
+        
+        return this.send(request, OutgoingPaymentsResult.class);
+    }
+
+    /**
+     * Rotates an existing token by revoking its current form and generating a new representation.
+     *
+     * @param authServer The authentication server to target for the token rotation operation.
+     * @param tokenId The identifier of the token to be rotated; must not be null.
+     * @param grant The authorization grant that provides access to authenticate the operation; must not be null.
+     * @return A new Grant object representing the updated authorization after token rotation.
+     * @throws OpenPaymentsClientException If the tokenId is null.
+     */
+    @Override
+    public Grant rotateToken(IAuthServer authServer, String tokenId, Grant grant) {
+        log.debug("rotateToken: ({})", tokenId);
+        ensureNotNull(authServer, "AuthServer cannot be null");
+        ensureNotNull(tokenId, "TokenId cannot be null");
+        ensureNotNull(grant, "Grant cannot be null");
+
+        var request = new SignatureRequestBuilder(this.privateKey, this.keyId, this.mapper)
+                .POST()
+                .target(String.format("%s/token/%s", authServer.getAuthServer(), tokenId))
+                .accessToken(this.extractAccessToken(grant))
+                .getRequest(this.options);
+
+        return this.send(request, Grant.class);
+    }
+
+    /**
+     * Revokes an access token by communicating with the specified authentication server.
+     * Tokens are usually accessible from issued grants, see {@code grant.getAccess().getToken()}
+     *
+     * @param authServer the authentication server to which the token revocation request is sent
+     * @param tokenId the unique identifier of the token to be revoked; must not be null
+     * @param grant the grant object containing the access token used for authorization during the request
+     */
+    @Override
+    public void revokeToken(IAuthServer authServer, String tokenId, Grant grant) {
+        log.debug("revokeToken: ({})", tokenId);
+        ensureNotNull(authServer, "AuthServer cannot be null");
+        ensureNotNull(tokenId, "TokenId cannot be null");
+        ensureNotNull(grant, "Grant cannot be null");
+
+        var request = new SignatureRequestBuilder(this.privateKey, this.keyId, this.mapper)
+                .DELETE()
+                .target(String.format("%s/token/%s", authServer.getAuthServer(), tokenId))
+                .accessToken(this.extractAccessToken(grant))
+                .getRequest(this.options);
+
+        this.send(request);
     }
 
     /**
@@ -452,6 +666,33 @@ public class OpenPaymentsHttpClient implements IOpenPaymentsClient {
 
             // deserialize
             return this.mapper.readValue(response.body(), responseType);
+        } catch (IOException e) {
+            throw new OpenPaymentsClientException(IO_ERROR, e.getMessage(), e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new OpenPaymentsClientException(INTERRUPTED, e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Sends an HTTP request using the configured HTTP client and processes the response.
+     * Logs the outgoing request before sending and throws an exception if the response status code is not 204.
+     *
+     * @param request the {@code HttpRequest} to be sent using the HTTP client.
+     * @throws OpenPaymentsAPIException if the response status code is not 204.
+     * @throws OpenPaymentsClientException if there is an I/O error during the request or if the thread is interrupted.
+     */
+    public void send(HttpRequest request) {
+        try {
+            this.httpLogger.logRequest(request);
+            HttpResponse<Void> response = this.client.send(request, HttpResponse.BodyHandlers.discarding());
+
+            if (response.statusCode() != 204) {
+                throw new OpenPaymentsAPIException(
+                        response.statusCode(),
+                        "Unable to send! Status code: " + response.statusCode()
+                );
+            }
         } catch (IOException e) {
             throw new OpenPaymentsClientException(IO_ERROR, e.getMessage(), e);
         } catch (InterruptedException e) {

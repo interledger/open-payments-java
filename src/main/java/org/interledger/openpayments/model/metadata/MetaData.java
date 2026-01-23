@@ -19,7 +19,6 @@ import java.util.Set;
  */
 @Data
 public class MetaData {
-
     /**
      * An external identifier for the payment.
      * 

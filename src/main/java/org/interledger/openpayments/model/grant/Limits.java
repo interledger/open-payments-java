@@ -21,7 +21,6 @@ import java.net.URI;
  */
 @Data
 public class Limits {
-
     /**
      * The specific receiver (incoming payment) URI that this limit applies to.
      * 

@@ -4,6 +4,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.interledger.openpayments.httpclient.OpenPaymentsHttpClient;
 import org.interledger.openpayments.model.common.Amount;
 import org.interledger.openpayments.model.grant.Grant;
+import org.interledger.openpayments.model.key.Ed25519PublicKey;
 import org.interledger.openpayments.util.UtilGlobal;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -12,6 +13,7 @@ import org.junit.jupiter.api.Test;
 import javax.swing.*;
 import java.math.BigDecimal;
 import java.net.URI;
+import java.util.Optional;
 
 import static java.lang.Thread.sleep;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -78,6 +80,38 @@ class InterledgerApiClientHttpImpl {
         // Auth and Resource server with tenant:
         Assertions.assertEquals("https://auth.interledger-test.dev/f537937b-7016-481b-b655-9f0d1014822c", walletAdd.getAuthServer());
         Assertions.assertEquals("https://ilp.interledger-test.dev/f537937b-7016-481b-b655-9f0d1014822c", walletAdd.getResourceServer());
+    }
+
+    /**
+     * Tests the retrieval of Ed25519 keys for a client wallet address.
+     *
+     * This test verifies the correct fetching and validation of Ed25519 keys using the
+     * client wallet address obtained from the test configuration. The following assertions
+     * are performed as part of the validation process:
+     *
+     * - Ensures the retrieved key collection is not null.
+     * - Confirms that at least one key exists in the collection.
+     * - Validates the algorithm ('alg') and curve ('crv') of the first key to ensure they
+     *   match the expected values ("EdDSA" for the algorithm and "Ed25519" for the curve).
+     *
+     * The test relies on {@link TestHelper#getClientWalletAddress()} to fetch the client wallet
+     * address required for the retrieval process.
+     *
+     * Assertions:
+     * - {@code assertNotNull(keys)}: Validates that the key collection is not null.
+     * - {@code assertNotNull(firstKey)}: Ensures that the first key in the collection is not null.
+     * - {@code Assertions.assertEquals("EdDSA", firstKey.getAlg())}: Validates the algorithm.
+     * - {@code Assertions.assertEquals("Ed25519", firstKey.getCrv())}: Validates the curve type.
+     */
+    @Test
+    public void getKeys() {
+        var keys = this.client.getKeys(TestHelper.getClientWalletAddress());
+        assertNotNull(keys);
+        var firstKey = (Ed25519PublicKey)keys.getKeys().toArray()[0];
+        assertNotNull(firstKey);
+
+        Assertions.assertEquals("EdDSA", firstKey.getAlg());
+        Assertions.assertEquals("Ed25519", firstKey.getCrv());
     }
 
     /**
@@ -209,7 +243,7 @@ class InterledgerApiClientHttpImpl {
         var incomingPayment = this.client.createIncomingPayment(receiverWallet, grantRequest, BigDecimal.valueOf(11.25));
         assertNotNull(incomingPayment);
         log.info("Incoming payment created: " + incomingPayment.getId() + " for " +
-                incomingPayment.getIncomingAmount().getAmount() + " " + incomingPayment.getIncomingAmount().getAssetCode());
+                incomingPayment.getIncomingAmount().getValue() + " " + incomingPayment.getIncomingAmount().getAssetCode());
 
         // STEP 2.5: SENDER WALLET DISCOVERY  
         // In a real scenario, the user would enter their wallet address at this point.
@@ -234,11 +268,17 @@ class InterledgerApiClientHttpImpl {
         // including any transaction fees. The quote links the sender to the incoming payment.
         log.info("********");
         log.info("STEP 4: Generate payment quote");
-        var quote = this.client.createQuote(quoteRequest.getAccess().getToken(), senderWallet, incomingPayment);
+        var quote = this.client.createQuote(
+                quoteRequest.getAccess().getToken(),
+                senderWallet,
+                incomingPayment,
+                Optional.empty(),
+                Optional.empty()
+        );
         assertNotNull(quote);
-        log.info("Quote generated - Sender pays: " + quote.getDebitAmount().getAmount() + " " +
+        log.info("Quote generated - Sender pays: " + quote.getDebitAmount().getValue() + " " +
                 quote.getDebitAmount().getAssetCode() +
-                ", Receiver gets: " + quote.getReceiveAmount().getAmount() + " " +
+                ", Receiver gets: " + quote.getReceiveAmount().getValue() + " " +
                 quote.getReceiveAmount().getAssetCode()
         );
 
@@ -293,7 +333,7 @@ class InterledgerApiClientHttpImpl {
         // Verify the payment state before attempting to finalize it
         log.info("********");
         log.info("STEP 5.5: Check incoming payment status before finalization");
-        var payment = this.client.getIncomingPayment(incomingPayment, grantRequest);
+        var payment = this.client.getIncomingPayment(incomingPayment.getId(), grantRequest);
         assertNotNull(payment);
         assertFalse(payment.isCompleted()); // Should not be completed yet
         log.info("Payment status before finalization: completed=" + payment.isCompleted());
@@ -335,7 +375,7 @@ class InterledgerApiClientHttpImpl {
         while (!payment.isCompleted() && count < 10) { // wait at least 10s ...
             count++;
 
-            payment = this.client.getIncomingPayment(incomingPayment, grantRequest);
+            payment = this.client.getIncomingPayment(incomingPayment.getId(), grantRequest);
             assertNotNull(payment);
             log.info("********");
             log.info("Payment status check #" + count + " - Completed: " + payment.isCompleted());
@@ -347,7 +387,7 @@ class InterledgerApiClientHttpImpl {
 
         if (payment.isCompleted()) {
             log.info("SUCCESS: Payment completed successfully!");
-            log.info("Final payment amount: " + payment.getReceivedAmount().getAmount() +
+            log.info("Final payment amount: " + payment.getReceivedAmount().getValue() +
                     " " + payment.getReceivedAmount().getAssetCode());
         } else {
             log.warn("Quote: Payment did not complete within timeout period");
@@ -384,7 +424,7 @@ class InterledgerApiClientHttpImpl {
         var incomingPayment = this.client.createIncomingPayment(receiverWallet, ipGrant, amount);
         assertNotNull(incomingPayment);
         log.info("Incoming payment created: " + incomingPayment.getId() + " for " +
-                incomingPayment.getIncomingAmount().getAmount() + " " + incomingPayment.getIncomingAmount().getAssetCode());
+                incomingPayment.getIncomingAmount().getValue() + " " + incomingPayment.getIncomingAmount().getAssetCode());
 
         // STEP 2.5: SENDER WALLET DISCOVERY
         // In a real scenario, the user would enter their wallet address at this point.
@@ -447,7 +487,7 @@ class InterledgerApiClientHttpImpl {
         // Verify the payment state before attempting to finalize it
         log.info("********");
         log.info("STEP 4.5: Check incoming payment status before finalization");
-        var payment = this.client.getIncomingPayment(incomingPayment, ipGrant);
+        var payment = this.client.getIncomingPayment(incomingPayment.getId(), ipGrant);
         assertNotNull(payment);
         assertFalse(payment.isCompleted()); // Should not be completed yet
         log.info("Payment status before finalization: completed=" + payment.isCompleted());
@@ -511,7 +551,7 @@ class InterledgerApiClientHttpImpl {
         while (!payment.isCompleted() && count < 15) { // wait at least 10s ...
             count++;
 
-            payment = this.client.getIncomingPayment(incomingPayment, ipGrant);
+            payment = this.client.getIncomingPayment(incomingPayment.getId(), ipGrant);
             assertNotNull(payment);
             log.info("********");
             log.info("Payment status check #" + count + " - Completed: " + payment.isCompleted());
@@ -523,7 +563,7 @@ class InterledgerApiClientHttpImpl {
 
         if (payment.isCompleted()) {
             log.info("SUCCESS: Payment completed successfully!");
-            log.info("Final payment amount: " + payment.getReceivedAmount().getAmount() +
+            log.info("Final payment amount: " + payment.getReceivedAmount().getValue() +
                     " " + payment.getReceivedAmount().getAssetCode());
         } else {
             log.warn("Incoming: Payment did not complete within timeout period");

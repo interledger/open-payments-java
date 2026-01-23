@@ -33,9 +33,40 @@ public abstract class AOpenPaymentsException extends RuntimeException {
      * for use in exception classes and other error-handling contexts.
      */
     public static final class Code {
+        /**
+         * This constant represents an error code indicating a thread interruption error.
+         * Used within the Open Payments domain to signify that a processing thread has been interrupted,
+         * typically as a result of an external signal or explicit interruption logic.
+         *
+         * Value: -101
+         */
         public static final int INTERRUPTED = -101;
+        /**
+         * A constant representing an error code for input/output-related failures within the Open Payments domain.
+         * This error code typically indicates an issue during reading or writing operations, such as file access
+         * errors, network interruptions, or stream handling failures.
+         *
+         * Value: -100
+         */
         public static final int IO_ERROR = -100;
+        /**
+         * This constant represents the HTTP status code for a bad request error (400).
+         * It is used within the Open Payments domain to indicate that the server cannot
+         * process the request due to client-side issues, such as invalid syntax, missing
+         * required parameters, or failing validation.
+         *
+         * Value: 400
+         */
         public static final int BAD_REQUEST = 400;
+        /**
+         * Represents the HTTP status code for "Precondition Failed" (412).
+         * This constant is used within the Open Payments domain to indicate that
+         * one or more conditions specified in the request headers were not met
+         * when evaluated on the server. This status code is typically associated
+         * with conditional requests using headers like "If-Match" or "If-Unmodified-Since".
+         *
+         * Value: 412
+         */
         public static final int PRE_CONDITION_FAILED = 412;
     }
 

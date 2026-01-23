@@ -79,7 +79,7 @@ public class Amount {
      * the full range of 64-bit unsigned integers.
      */
     @JsonProperty(value = "value", required = true)
-    private String amount;
+    private String value;
 
     /**
      * Converts this InterledgerAmount to a BigDecimal representation.
@@ -90,7 +90,7 @@ public class Amount {
      * @return a BigDecimal representing the human-readable amount
      */
     public BigDecimal asBigDecimal() {
-        return new BigDecimal(amount).movePointLeft(assetScale);
+        return new BigDecimal(value).movePointLeft(assetScale);
     }
 
     /**
@@ -125,7 +125,7 @@ public class Amount {
         }
         var out = new Amount();
         out.assetCode = assetCode;
-        out.amount = toInterledgerAmount(amount, scale);
+        out.value = toInterledgerAmount(amount, scale);
         out.assetScale = scale;
         return out;
     }
