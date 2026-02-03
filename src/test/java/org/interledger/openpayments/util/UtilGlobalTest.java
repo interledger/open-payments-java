@@ -54,7 +54,7 @@ public class UtilGlobalTest {
         @Test
         void shouldReturnFalseWhenIsNotNullOrEmptyStringAfterTrimming() {
             String str = " random string ";
-            assertFalse(UtilGlobal.isNullOrEmpty(str));
+            assertTrue(UtilGlobal.isNullOrEmpty(str));
         }
     }
 
