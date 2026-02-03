@@ -1,14 +1,22 @@
 package org.interledger.openpayments;
 
+import org.interledger.openpayments.model.IAuthServer;
+import org.interledger.openpayments.model.IResourceServer;
+import org.interledger.openpayments.model.common.Amount;
+import org.interledger.openpayments.model.grant.AccessAction;
 import org.interledger.openpayments.model.grant.Grant;
 import org.interledger.openpayments.model.incomingpayment.IncomingPayment;
+import org.interledger.openpayments.model.incomingpayment.IncomingPaymentsResult;
+import org.interledger.openpayments.model.key.Ed25519Keys;
 import org.interledger.openpayments.model.outgoingpayment.OutgoingPayment;
+import org.interledger.openpayments.model.outgoingpayment.OutgoingPaymentsResult;
 import org.interledger.openpayments.model.payment.Payment;
 import org.interledger.openpayments.model.quote.Quote;
 import org.interledger.openpayments.model.walletaddress.WalletAddress;
 
 import java.math.BigDecimal;
 import java.net.URI;
+import java.util.Optional;
 
 /**
  * Interledger Open Payments Client.
@@ -31,18 +39,24 @@ public interface IOpenPaymentsClient {
     WalletAddress getWalletAddress(String url);
 
     /**
-     * Creates a grant for incoming payment using the given wallet address.
-     * This method interacts with the Open Payments-enabled server to generate
-     * an access grant, allowing the client to receive incoming payments.
+     * Retrieves Ed25519 public and private keys from the specified URL.
      *
-     * @param receiver the wallet address for which the grant is to be created;
-     *                it represents a secure, sharable identifier linked to the
-     *                specific Open Payments account
-     * @return a Grant object containing the access credentials, including the
-     *         access token and optional continuation details, for interacting
-     *         with the server
+     * @param url the URL from which the Ed25519 keys should be fetched.
+     *            The URL must point to a valid resource that provides the key data.
+     * @return an Ed25519Keys object containing the retrieved public and private keys.
+     *         If the keys cannot be retrieved or the URL is invalid, it may throw
+     *         an exception or return null based on the implementation.
      */
-    Grant createGrantIncomingPayment(WalletAddress receiver);
+    Ed25519Keys getKeys(String url);
+
+    /**
+     * Creates and returns a grant to enable incoming payment permissions for the specified wallet address.
+     *
+     * @param receiver the wallet address that will receive the granted incoming payments
+     * @param actions the actions associated with the granted permissions.
+     * @return the created grant for the specified receiver and actions
+     */
+    Grant createGrantIncomingPayment(WalletAddress receiver, AccessAction... actions);
 
     /**
      * Creates an incoming payment for the specified receiver with the given grant
@@ -71,11 +85,12 @@ public interface IOpenPaymentsClient {
      * @param sender the wallet address representing the source of the payment.
      *               It identifies the payment sender's account and is used to
      *               generate the associated grant.
+     * @param actions the actions associated with the granted permissions.
      * @return a Grant object containing the access credentials, including the
      *         access token and optional continuation details, for quoting payments
      *         on behalf of the sender.
      */
-    Grant createGrantQuote(WalletAddress sender);
+    Grant createGrantQuote(WalletAddress sender, AccessAction... actions);
 
     /**
      * Creates a payment quote for a specified sender and incoming payment.
@@ -92,11 +107,28 @@ public interface IOpenPaymentsClient {
      *                        payment details for which the quote is being created.
      *                        This includes information such as payment amount,
      *                        recipient details, and associated metadata.
+     * @param debitAmount the OPTIONAL amount to debit from the sender's wallet account.
+     * @param receiveAmount the OPTIONAL amount to be received by the payee's wallet account.
      * @return a Quote object containing the details of the created payment quote.
      *         It includes information such as the quoted payment amount, currency
      *         details, expiration time, and any applicable terms or fees.
      */
-    Quote createQuote(String quoteToken, WalletAddress sender, IncomingPayment incomingPayment);
+    Quote createQuote(
+            String quoteToken,
+            WalletAddress sender,
+            IncomingPayment incomingPayment,
+            Optional<Amount> debitAmount,
+            Optional<Amount> receiveAmount
+    );
+
+    /**
+     * Retrieves a quote based on the provided URI and grant request.
+     *
+     * @param quoteUri the URI pointing to the desired quote resource
+     * @param grantRequest the grant request containing necessary permissions or details for accessing the quote
+     * @return the Quote object retrieved from the specified URI
+     */
+    Quote getQuote(URI quoteUri, Grant grantRequest);
 
     /**
      * Creates a continuation grant for an outgoing payment request.
@@ -105,9 +137,7 @@ public interface IOpenPaymentsClient {
      *
      * @param sender the wallet address of the payment sender. This identifies the
      *               account initiating the outgoing payment request.
-     * @param quote the payment quote that includes details such as payment
-     *              amount, currency, and associated metadata. The quote provides
-     *              context to the outgoing payment.
+     * @param debitAmount the amount to be debited from the sender's wallet account.
      * @param returnUrl the URI to which the user will be redirected after
      *                  completing the interaction required for the outgoing
      *                  payment grant.
@@ -120,7 +150,12 @@ public interface IOpenPaymentsClient {
      *         interaction details, or an access token based on the authorization
      *         flow.
      */
-    OutgoingPayment createGrantContinuation(WalletAddress sender, Quote quote, URI returnUrl, String nonce);
+    OutgoingPayment createGrantContinuation(
+            WalletAddress sender,
+            Amount debitAmount,
+            URI returnUrl,
+            String nonce
+    );
 
     /**
      * Finalizes the process for creating a grant associated with an outgoing payment.
@@ -139,6 +174,12 @@ public interface IOpenPaymentsClient {
     Grant createGrantFinalize(OutgoingPayment outgoingPayment, String interactRef);
 
     /**
+     * Cancel a grant.
+     * @param grant the grant object that represents the grant to be canceled
+     */
+    void createGrantCancel(Grant grant);
+
+    /**
      * Finalizes and processes an outgoing payment using the given grant, sender's wallet, and payment quote.
      * This method completes the payment transaction based on the pre-established quote and authorization grant.
      *
@@ -154,16 +195,110 @@ public interface IOpenPaymentsClient {
     Payment createFinalizePayment(Grant finalized, WalletAddress sender, Quote quote);
 
     /**
+     * Creates and finalizes a payment based on the provided grant, sender wallet address, incoming payment,
+     * and debit amount. This method consolidates the required information to generate a finalized
+     * payment transaction.
+     *
+     * @param finalized the finalized grant object containing necessary grant details
+     * @param sender the wallet address initiating the payment
+     * @param incomingPayment the incoming payment details received for processing
+     * @param debitAmount the amount to be debited from the sender's wallet
+     * @return a Payment object representing the completed and finalized payment transaction
+     */
+    Payment createFinalizePayment(
+            Grant finalized,
+            WalletAddress sender,
+            IncomingPayment incomingPayment,
+            Amount debitAmount
+    );
+
+    /**
      * Retrieves the current status of an incoming payment.
      * <p>This method is used to monitor payment completion and track the received amount.
      * It can be called multiple times to poll for payment status updates until the
      * payment is marked as completed.
      *
-     * @param incomingPayment the incoming payment to check
-     * @param grantRequest the access grant that provides permission to read the payment
+     * @param incomingPaymentUri the incoming payment URI to retrieve all the payment details
+     * @param grant the access grant that provides permission to read the payment
      * @return current payment status including completion state and received amount
      * @see IncomingPayment
      * @see Grant
      */
-    IncomingPayment getIncomingPayment(IncomingPayment incomingPayment, Grant grantRequest);
+    IncomingPayment getIncomingPayment(URI incomingPaymentUri, Grant grant);
+
+    /**
+     * Retrieves incoming payment data for a specified wallet address.
+     *
+     * @param resourceServer The resource server instance used to access payment data.
+     * @param walletAddressUri The URI representing the wallet address for which incoming payments are to be retrieved.
+     * @param grant The authorization grant used to ensure valid access to the resource server.
+     * @return An instance of IncomingPaymentsResult containing details of the retrieved incoming payments.
+     */
+    IncomingPaymentsResult getIncomingPayments(
+            IResourceServer resourceServer,
+            URI walletAddressUri,
+            Grant grant
+    );
+
+    /**
+     * Completes the process for incoming payment creation.
+     *
+     * @param incomingPaymentToComplete the incoming payment that needs to be completed
+     * @param grant the grant associated with completing the incoming payment
+     * @return the completed incoming payment object
+     */
+    IncomingPayment createIncomingPaymentComplete(IncomingPayment incomingPaymentToComplete, Grant grant);
+
+    /**
+     * Retrieves the current status of an outgoing payment.
+     *
+     * @param outgoingPaymentUri the outgoing payment URI to retrieve all the payment details
+     * @param grantRequest the access grant that provides permission to read the payment
+     * @return current payment status.
+     * @see OutgoingPayment
+     * @see Grant
+     */
+    OutgoingPayment getOutgoingPayment(URI outgoingPaymentUri, Grant grantRequest);
+
+    /**
+     * Retrieves a list of outgoing payments for the specified wallet address.
+     *
+     * @param resourceServer the resource server to use for fetching outgoing payment details
+     * @param walletAddressUri the URI representing the wallet address for which the outgoing payments will be retrieved
+     * @param grantRequest the grant request containing authentication and access details required for the operation
+     * @return an OutgoingPaymentsResult object containing the details of outgoing payments for the specified wallet address
+     */
+    OutgoingPaymentsResult getOutgoingPayments(
+            IResourceServer resourceServer,
+            URI walletAddressUri,
+            Grant grantRequest
+    );
+
+    /**
+     * Creates a new grant for an incoming payment request using the specified authentication server and grant ID.
+     *
+     * @param authServer the authorization server to be used for creating the grant
+     * @param tokenId the unique identifier for the token to be rotated.
+     * @param grant The grant used to authorize the rotation request.
+     * @return the rotated grant.
+     */
+    Grant rotateToken(
+            IAuthServer authServer,
+            String tokenId,
+            Grant grant
+    );
+
+    /**
+     * Revokes an existing token, rendering it invalid for future use.
+     * Tokens are usually accessible from issued grants, see {@code grant.getAccess().getToken()}
+     *
+     * @param authServer The authentication server responsible for managing the token lifecycle.
+     * @param tokenId The unique identifier of the token to be revoked.
+     * @param grant The grant used to authorize the revocation request.
+     */
+    void revokeToken(
+            IAuthServer authServer,
+            String tokenId,
+            Grant grant
+    );
 }

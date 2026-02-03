@@ -1,34 +1,15 @@
 package org.interledger.openpayments.httpclient;
 
-import static org.interledger.openpayments.exception.AOpenPaymentsException.Code.INTERRUPTED;
-import static org.interledger.openpayments.exception.AOpenPaymentsException.Code.IO_ERROR;
-import static org.interledger.openpayments.util.testing.TestKeys.generatePrivateKey;
-import static org.interledger.openpayments.util.testing.TestModels.*;
-import static org.interledger.openpayments.util.testing.TestResponse.createResponse;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
-import java.io.IOException;
-import java.math.BigDecimal;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.security.NoSuchAlgorithmException;
-import java.util.function.Supplier;
-import java.util.stream.Stream;
 import org.interledger.openpayments.exception.OpenPaymentsAPIException;
 import org.interledger.openpayments.exception.OpenPaymentsClientException;
 import org.interledger.openpayments.model.common.ApiError;
 import org.interledger.openpayments.model.grant.Client;
 import org.interledger.openpayments.model.grant.Grant;
 import org.interledger.openpayments.model.incomingpayment.IncomingPayment;
+import org.interledger.openpayments.model.key.Ed25519Keys;
 import org.interledger.openpayments.model.outgoingpayment.OutgoingPayment;
 import org.interledger.openpayments.model.payment.Payment;
 import org.interledger.openpayments.model.quote.Quote;
@@ -44,6 +25,28 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.math.BigDecimal;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.security.NoSuchAlgorithmException;
+import java.util.Optional;
+import java.util.function.Supplier;
+import java.util.stream.Stream;
+
+import static org.interledger.openpayments.exception.AOpenPaymentsException.Code.INTERRUPTED;
+import static org.interledger.openpayments.exception.AOpenPaymentsException.Code.IO_ERROR;
+import static org.interledger.openpayments.util.testing.TestKeys.generatePrivateKey;
+import static org.interledger.openpayments.util.testing.TestModels.*;
+import static org.interledger.openpayments.util.testing.TestResponse.createResponse;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 /**
  * Unit tests for {@link OpenPaymentsHttpClient}.
@@ -71,6 +74,7 @@ public class OpenPaymentsHttpClientTest {
   private ListAppender<ILoggingEvent> appender;
   private static OpenPaymentsHttpClient opClient;
   private static WalletAddress walletAddress;
+  private static Ed25519Keys keys;
   private static Grant grantForIncomingPayment;
   private static Grant grantForQuote;
   private static IncomingPayment incomingPayment;
@@ -92,6 +96,7 @@ public class OpenPaymentsHttpClientTest {
     grantForIncomingPayment = createGrantForIncomingPayment();
     grantForQuote = createGrantForQuote();
     walletAddress = createWalletAddress();
+    keys = createKeys();
     incomingPayment = createIncomingPayment();
     quote = createQuote();
     outgoingPayment = createOutgoingPayment();
@@ -205,6 +210,10 @@ public class OpenPaymentsHttpClientTest {
               () -> opClient.getWalletAddress("https://wallet.example.com"),
               walletAddress),
           arg(
+                  "getKeys",
+                  () -> opClient.getKeys("https://wallet.example.com"),
+                  keys),
+          arg(
               "createGrantIncomingPayment",
               () -> opClient.createGrantIncomingPayment(walletAddress),
               grantForIncomingPayment),
@@ -217,13 +226,15 @@ public class OpenPaymentsHttpClientTest {
           arg("createGrantQuote", () -> opClient.createGrantQuote(walletAddress), grantForQuote),
           arg(
               "createQuote",
-              () -> opClient.createQuote("quote-token-123", walletAddress, incomingPayment),
+              () -> opClient.createQuote(
+                      "quote-token-123", walletAddress, incomingPayment, Optional.empty(), Optional.empty()
+              ),
               quote),
           arg(
               "createGrantContinuation",
               () ->
                   opClient.createGrantContinuation(
-                      walletAddress, quote, URI.create("https://app/cb"), "nonce123"),
+                      walletAddress, quote.getDebitAmount(), URI.create("https://app/cb"), "nonce123"),
               outgoingPayment),
           arg(
               "createGrantFinalize",

@@ -1,15 +1,16 @@
 plugins {
     id 'java'
     id 'maven-publish'
-    id 'signing'
-    id 'com.diffplug.spotless' version '6.25.0'
+    // JReleaser for publishing to Maven Central
+    id 'org.jreleaser' version '1.21.0'
 }
 
 group = 'org.interledger'
 version = project.findProperty('release.version') ?: '0.0.1-SNAPSHOT'
+description = 'The OpenPayments Java SDK.'
 
 // Set a proper artifact name
-def artifactName = 'interledger'
+def artifactName = 'open-payments'
 
 repositories {
     mavenCentral()
@@ -21,12 +22,6 @@ java {
     }
     withJavadocJar()
     withSourcesJar()
-}
-
-spotless {
-    java {
-        googleJavaFormat().aosp()
-    }
 }
 
 ext {
@@ -108,7 +103,6 @@ dependencies {
     implementation "com.fasterxml.jackson.core:jackson-annotations:${jacksonVersion}"
     implementation "com.fasterxml.jackson.core:jackson-databind:${jacksonVersion}"
     implementation "com.fasterxml.jackson.datatype:jackson-datatype-jsr310:${jacksonVersion}"
-    //TODO implementation 'com.google.code.findbugs:jsr305:3.0.2'
 
     // Unit tests
     testCompileOnly "org.projectlombok:lombok:${lombokVersion}"
@@ -133,26 +127,20 @@ dependencies {
 
 publishing {
     repositories {
-        // Private internal repository for interledger/packages
         maven {
-            name = 'Private'
-            url = uri('https://maven.pkg.github.com/interledger/packages')
-            credentials {
-                username = project.findProperty('github.username') ?: System.getenv('GITHUB_ACTOR')
-                password = project.findProperty('github.token') ?: System.getenv('PACKAGES_TOKEN')
-            }
+            url = layout.buildDirectory.dir('staging-deploy')
         }
     }
-
     publications {
         maven(MavenPublication) {
             from components.java
 
             // Set the artifact name explicitly
+            groupId = 'org.interledger'
             artifactId = artifactName
 
             pom {
-                name = 'OpenPayments API Client'
+                name = artifactName
                 description = 'Java client for Interledger Open Payments protocol'
                 url = 'https://github.com/interledger/open-payments-java'
 
@@ -172,6 +160,13 @@ publishing {
                         organization = 'Interledger'
                         organizationUrl = 'https://interledger.org'
                     }
+                    developer {
+                        id = 'oana-lolea'
+                        name = 'Oana Lolea'
+                        email = 'oana.lolea@breakpointit.eu'
+                        organization = 'Breakpoint'
+                        organizationUrl = 'https://breakpointit.eu'
+                    }
                 }
 
                 organization {
@@ -188,3 +183,33 @@ publishing {
         }
     }
 }
+
+// Configure artifact signing for Maven Central via JReleaser (preferred)
+jreleaser {
+    project {
+        // Used by JReleaser in release metadata/announcements
+        copyright = "2025 Interledger"
+    }
+    // Reuse project info from Gradle (group, version, POM metadata)
+    signing {
+        active = 'ALWAYS'
+        armored = true
+        mode = 'MEMORY'
+    }
+    deploy {
+        maven {
+            // Use the new Central Portal publisher API
+            mavenCentral {
+                sonatype {
+                    active = 'ALWAYS'
+                    url = 'https://central.sonatype.com/api/v1/publisher'
+                    stagingRepository('build/staging-deploy')
+                    username = (findProperty('JRELEASER_MAVENCENTRAL_USERNAME') ?: System.getenv('JRELEASER_MAVENCENTRAL_USERNAME'))
+                    password = (findProperty('JRELEASER_MAVENCENTRAL_PASSWORD') ?: System.getenv('JRELEASER_MAVENCENTRAL_PASSWORD'))
+                }
+            }
+        }
+    }
+}
+
+

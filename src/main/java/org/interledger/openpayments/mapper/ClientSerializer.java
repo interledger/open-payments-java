@@ -30,6 +30,10 @@ public class ClientSerializer extends JsonSerializer<Client> {
      */
     @Override
     public void serialize(Client client, JsonGenerator gen, SerializerProvider serializers) throws IOException {
-        gen.writeString(client.getPaymentPointer().toString());
+        if (client == null || client.getPaymentPointer() == null) {
+            gen.writeNull();
+        } else {
+            gen.writeString(client.getPaymentPointer().toString());
+        }
     }
 }
