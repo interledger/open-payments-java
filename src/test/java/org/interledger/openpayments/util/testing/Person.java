@@ -5,6 +5,7 @@ package org.interledger.openpayments.util.testing;
  * testing.
  *
  * @param name the person's name
- * @param age the person's age in years
+ * @param age  the person's age in years
  */
-public record Person(String name, int age) {}
+public record Person(String name, int age) {
+}

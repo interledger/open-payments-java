@@ -1,16 +1,17 @@
 package org.interledger.openpayments.mapper;
 
-import static org.mockito.Mockito.verify;
-
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.databind.SerializerProvider;
-import java.io.IOException;
-import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.io.IOException;
+import java.util.Set;
+
+import static org.mockito.Mockito.verify;
 
 /**
  * Unit tests for {@link OrderedSetSerializer}.
@@ -31,32 +32,34 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @DisplayName("OrderedSetSerializer → lexicographic order for signing")
 @ExtendWith(MockitoExtension.class)
 public class OrderedSetSerializerTest {
-  @Mock private JsonGenerator gen;
-  @Mock private SerializerProvider provider;
+    @Mock
+    private JsonGenerator gen;
+    @Mock
+    private SerializerProvider provider;
 
-  @Test
-  void shouldSerializeSetInLexicographicalOrder() throws IOException {
-    OrderedSetSerializer<String> serializer = new OrderedSetSerializer<>();
+    @Test
+    void shouldSerializeSetInLexicographicalOrder() throws IOException {
+        OrderedSetSerializer<String> serializer = new OrderedSetSerializer<>();
 
-    Set<String> input = Set.of("banana", "apple", "cherry");
+        Set<String> input = Set.of("banana", "apple", "cherry");
 
-    serializer.serialize(input, gen, provider);
+        serializer.serialize(input, gen, provider);
 
-    verify(gen).writeStartArray();
-    verify(gen).writeString("apple");
-    verify(gen).writeString("banana");
-    verify(gen).writeString("cherry");
-    verify(gen).writeEndArray();
-  }
+        verify(gen).writeStartArray();
+        verify(gen).writeString("apple");
+        verify(gen).writeString("banana");
+        verify(gen).writeString("cherry");
+        verify(gen).writeEndArray();
+    }
 
-  @Test
-  void shouldSerializeEmptySet() throws IOException {
-    OrderedSetSerializer<String> serializer = new OrderedSetSerializer<>();
+    @Test
+    void shouldSerializeEmptySet() throws IOException {
+        OrderedSetSerializer<String> serializer = new OrderedSetSerializer<>();
 
-    Set<String> input = Set.of();
+        Set<String> input = Set.of();
 
-    serializer.serialize(input, gen, provider);
-    verify(gen).writeStartArray();
-    verify(gen).writeEndArray();
-  }
+        serializer.serialize(input, gen, provider);
+        verify(gen).writeStartArray();
+        verify(gen).writeEndArray();
+    }
 }

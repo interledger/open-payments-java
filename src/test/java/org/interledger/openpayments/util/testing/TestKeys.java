@@ -26,20 +26,20 @@ import java.security.PrivateKey;
  * @since 1.0
  */
 public final class TestKeys {
-  public static PrivateKey generatePrivateKey() throws NoSuchAlgorithmException {
-    return generatePrivateKey("Ed25519");
-  }
+    public static PrivateKey generatePrivateKey() throws NoSuchAlgorithmException {
+        return generatePrivateKey("Ed25519");
+    }
 
-  public static PrivateKey generatePrivateKey(String algorithm) throws NoSuchAlgorithmException {
-    return generateKeyPair(algorithm).getPrivate();
-  }
+    public static PrivateKey generatePrivateKey(String algorithm) throws NoSuchAlgorithmException {
+        return generateKeyPair(algorithm).getPrivate();
+    }
 
-  public static KeyPair generateKeyPair() throws NoSuchAlgorithmException {
-    return generateKeyPair("Ed25519");
-  }
+    public static KeyPair generateKeyPair() throws NoSuchAlgorithmException {
+        return generateKeyPair("Ed25519");
+    }
 
-  public static KeyPair generateKeyPair(String algorithm) throws NoSuchAlgorithmException {
-    KeyPairGenerator kpg = KeyPairGenerator.getInstance(algorithm);
-    return kpg.generateKeyPair();
-  }
+    public static KeyPair generateKeyPair(String algorithm) throws NoSuchAlgorithmException {
+        KeyPairGenerator kpg = KeyPairGenerator.getInstance(algorithm);
+        return kpg.generateKeyPair();
+    }
 }

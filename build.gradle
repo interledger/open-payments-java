@@ -3,6 +3,7 @@ plugins {
     id 'maven-publish'
     // JReleaser for publishing to Maven Central
     id 'org.jreleaser' version '1.21.0'
+    id 'checkstyle'
 }
 
 group = 'org.interledger'
@@ -87,6 +88,30 @@ tasks.test {
 tasks.withType(Javadoc).configureEach {
     options.addStringOption('Xdoclint:all/public')
     failOnError = false
+}
+
+checkstyle {
+    configFile = file("${rootDir}/config/checkstyle/checkstyle.xml")
+    toolVersion = '10.12.4'
+    ignoreFailures = false
+    maxWarnings = 0
+}
+
+tasks.named('check') {
+    dependsOn tasks.withType(Checkstyle)
+}
+
+tasks.withType(Checkstyle).configureEach {
+    showViolations = true
+    reports {
+        xml.required = true
+        xml.outputLocation = file("${rootDir}/build/reports/checkstyle/${project.name}-checkstyle.xml")
+        html.required = true
+        html.outputLocation = file("${rootDir}/build/reports/checkstyle/${project.name}-checkstyle.html")
+    }
+    ignoreFailures = false
+    maxErrors = 0
+    maxWarnings = 0
 }
 
 dependencies {

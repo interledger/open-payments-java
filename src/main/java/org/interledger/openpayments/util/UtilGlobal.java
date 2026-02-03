@@ -25,7 +25,7 @@ import static java.util.Objects.isNull;
 public class UtilGlobal {
     /**
      * Represents an immutable, empty string value.
-     *
+     * <p>
      * This constant can be used as a placeholder or default value
      * for operations or fields requiring an empty string.
      * It is particularly useful for avoiding null values when
@@ -74,7 +74,7 @@ public class UtilGlobal {
      * Ensures that the provided string is neither null nor empty.
      * If the string is null or empty, an {@code OpenPaymentsClientException} is thrown with the specified error message.
      *
-     * @param value the string to validate for null or emptiness
+     * @param value        the string to validate for null or emptiness
      * @param errorMessage the error message to include in the exception if the validation fails
      * @throws OpenPaymentsClientException if the provided string is null or empty
      */
@@ -88,7 +88,7 @@ public class UtilGlobal {
      * Ensures that the provided set is neither null nor empty.
      * If the set is null or empty, an {@code OpenPaymentsClientException} is thrown with the specified error message.
      *
-     * @param value the set to validate for null or emptiness
+     * @param value        the set to validate for null or emptiness
      * @param errorMessage the error message to include in the exception if the validation fails
      * @throws OpenPaymentsClientException if the provided set is null or empty
      */
@@ -102,7 +102,7 @@ public class UtilGlobal {
      * Ensures that the provided object is not null.
      * If the object is null, an {@code OpenPaymentsClientException} is thrown with the specified error message.
      *
-     * @param value the object to validate for null
+     * @param value        the object to validate for null
      * @param errorMessage the error message to include in the exception if the validation fails
      * @throws OpenPaymentsClientException if the provided object is null
      */
@@ -116,7 +116,7 @@ public class UtilGlobal {
      * Ensures that the specified boolean value is true.
      * If the value is false, an {@code OpenPaymentsClientException} is thrown with the provided error message.
      *
-     * @param value the boolean value to validate
+     * @param value        the boolean value to validate
      * @param errorMessage the error message to include in the exception if the validation fails
      * @throws OpenPaymentsClientException if the provided boolean value is false
      */
@@ -128,7 +128,7 @@ public class UtilGlobal {
 
     /**
      * Extracts a private key from a PEM-formatted string.
-     *
+     * <p>
      * This method removes the PEM header and footer, decodes the Base64-encoded content,
      * and converts it into a {@code PrivateKey} object using the Ed25519 algorithm.
      *
@@ -155,7 +155,7 @@ public class UtilGlobal {
         } catch (NoSuchAlgorithmException noSuch) {
             throw new OpenPaymentsClientException(
                     AOpenPaymentsException.Code.PRE_CONDITION_FAILED,
-                    "Algo [Ed25519] not supported. "+noSuch.getMessage(),
+                    "Algo [Ed25519] not supported. " + noSuch.getMessage(),
                     noSuch
             );
         }
@@ -165,7 +165,7 @@ public class UtilGlobal {
         } catch (InvalidKeySpecException inValidKeySpec) {
             throw new OpenPaymentsClientException(
                     AOpenPaymentsException.Code.PRE_CONDITION_FAILED,
-                    "Key spec not [PKCS8] encoded. "+inValidKeySpec.getMessage(),
+                    "Key spec not [PKCS8] encoded. " + inValidKeySpec.getMessage(),
                     inValidKeySpec
             );
         }

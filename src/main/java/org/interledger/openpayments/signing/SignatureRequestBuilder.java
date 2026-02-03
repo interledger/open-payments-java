@@ -42,7 +42,7 @@ public class SignatureRequestBuilder {
     static final String SIGNATURE_HEADER = "Signature";
     static final String AUTHORIZATION_HEADER = "Authorization";
     public static final String ACCEPT_HEADER = "Accept";
-    
+
 
     public static final String APPLICATION_JSON = "application/json";
 
@@ -58,9 +58,9 @@ public class SignatureRequestBuilder {
     private String body;
 
     public SignatureRequestBuilder(
-            PrivateKey privateKey,
-            String keyId,
-            OpenPaymentsObjectMapper mapper
+        PrivateKey privateKey,
+        String keyId,
+        OpenPaymentsObjectMapper mapper
     ) {
         UtilGlobal.ensureNotNull(privateKey, "PrivateKey cannot be null");
         UtilGlobal.ensureNotNullOrEmpty(keyId, "KeyId cannot be null or empty");
@@ -72,8 +72,9 @@ public class SignatureRequestBuilder {
 
     /**
      * Constructs a new SignatureRequestBuilder with the specified private key and key identifier.
+     *
      * @param privateKey the private key used for signing
-     * @param keyId the identifier of the key
+     * @param keyId      the identifier of the key
      */
     public SignatureRequestBuilder(PrivateKey privateKey, String keyId) {
         this(privateKey, keyId, null);
@@ -81,6 +82,7 @@ public class SignatureRequestBuilder {
 
     /**
      * Sets the HTTP method for the request.
+     *
      * @param value HTTP method (GET, POST, PUT, DELETE, HEAD)
      * @return this builder for method chaining
      * @throws IllegalArgumentException if method is null, blank, or not allowed
@@ -100,6 +102,7 @@ public class SignatureRequestBuilder {
      * @return this builder for method chaining
      * @throws IllegalArgumentException if method is already set or body serialization fails
      */
+    @SuppressWarnings("MethodName")
     public SignatureRequestBuilder POST(Object body) {
         checkMethod();
         return method("POST").json(body);
@@ -111,6 +114,7 @@ public class SignatureRequestBuilder {
      * @return this builder for method chaining
      * @throws IllegalArgumentException if the method is already set
      */
+    @SuppressWarnings("MethodName")
     public SignatureRequestBuilder POST() {
         checkMethod();
         return method("POST");
@@ -118,10 +122,12 @@ public class SignatureRequestBuilder {
 
     /**
      * Sets the HTTP method for the request to PUT and serializes the body as JSON.
+     *
      * @param body the object to serialize as the JSON request body
      * @return this builder instance for method chaining
      * @throws IllegalArgumentException if the method is already set or if body serialization fails
      */
+    @SuppressWarnings("MethodName")
     public SignatureRequestBuilder PUT(Object body) {
         checkMethod();
         return method("PUT").json(body);
@@ -129,9 +135,11 @@ public class SignatureRequestBuilder {
 
     /**
      * Sets the HTTP method for the request to PUT without the request body.
+     *
      * @return this builder instance for method chaining
      * @throws IllegalArgumentException if the method is already set
      */
+    @SuppressWarnings("MethodName")
     public SignatureRequestBuilder PUT() {
         checkMethod();
         return method("PUT");
@@ -143,6 +151,7 @@ public class SignatureRequestBuilder {
      * @return this builder for method chaining
      * @throws IllegalArgumentException if the method is already set
      */
+    @SuppressWarnings("MethodName")
     public SignatureRequestBuilder GET() {
         checkMethod();
         return method("GET");
@@ -154,6 +163,7 @@ public class SignatureRequestBuilder {
      * @return this builder for method chaining
      * @throws IllegalArgumentException if the method is already set
      */
+    @SuppressWarnings("MethodName")
     public SignatureRequestBuilder DELETE() {
         checkMethod();
         return method("DELETE");
@@ -300,18 +310,18 @@ public class SignatureRequestBuilder {
      * It gathers the existing parameters, formats them into quoted lower-case strings,
      * and organizes these values into a standardized format. The generated signature
      * parameters are then added to the parameters map under a predefined key.
-     *
+     * <p>
      * Preconditions:
      * - The 'created' timestamp must be set to a value greater than 0.
      * - The 'parameters' map and 'keyId' must be initialized prior to calling this method.
-     *
+     * <p>
      * Postconditions:
      * - The 'SIGNATURE_PARAMS' key in the parameters map will be updated with a new
-     *   signature parameter string.
-     *
+     * signature parameter string.
+     * <p>
      * Throws:
      * - IllegalStateException if the 'created' timestamp value is not greater than 0.
-     *
+     * <p>
      * Side Effects:
      * - Modifies the 'parameters' map by adding or updating the 'SIGNATURE_PARAMS' entry.
      */
@@ -319,8 +329,8 @@ public class SignatureRequestBuilder {
         ensureTrue(created > 0, "Created timestamp must be set before calculating signature params!");
 
         String signatureParams = parameters.keySet().stream()
-                .map(item -> "\"" + item.toLowerCase() + "\"")  // Quote each item, need to be lower case
-                .collect(Collectors.joining(" "));
+            .map(item -> "\"" + item.toLowerCase() + "\"")  // Quote each item, need to be lower case
+            .collect(Collectors.joining(" "));
 
         String params = String.format("(%s);keyid=\"%s\";created=%d", signatureParams, keyId, created);
         parameters.put(SIGNATURE_PARAMS, params);
@@ -413,6 +423,7 @@ public class SignatureRequestBuilder {
 
     /**
      * Checks if the specified parameter key exists in the parameters map. Throws an exception if the key is not found.
+     *
      * @param key the parameter key to check for existence
      */
     private void checkHasParameter(String key) {
@@ -423,10 +434,10 @@ public class SignatureRequestBuilder {
      * Validates whether the METHOD parameter in the parameters map is null.
      * If the METHOD parameter is already set, this method throws an exception with
      * an error message indicating that the method has already been set.
-     *
+     * <p>
      * This function ensures that the METHOD parameter is not being redefined,
      * helping maintain consistency and preventing unintended reassignments.
-     *
+     * <p>
      * Throws:
      * - IllegalStateException: If the METHOD parameter in the parameters map is already set.
      */
@@ -440,7 +451,7 @@ public class SignatureRequestBuilder {
      * as required by certain header standards, and entries are separated by a newline character.
      *
      * @return a string representation of the signature base comprising key-value pairs from
-     *         the parameters map, where keys are in lowercase and pairs are separated by newlines
+     * the parameters map, where keys are in lowercase and pairs are separated by newlines
      */
     protected String getSignatureBase() {
         this.checkIsBuild();
@@ -449,9 +460,9 @@ public class SignatureRequestBuilder {
         while (iterator.hasNext()) {
             Map.Entry<String, Object> entry = iterator.next();
             signatureBase.append("\"")
-                    .append(entry.getKey().toLowerCase())   // headers need to be lower case
-                    .append("\": ")
-                    .append(entry.getValue());
+                .append(entry.getKey().toLowerCase())   // headers need to be lower case
+                .append("\": ")
+                .append(entry.getValue());
 
             if (iterator.hasNext()) signatureBase.append(System.lineSeparator());
         }
@@ -480,7 +491,7 @@ public class SignatureRequestBuilder {
      *
      * @return a Base64 encoded string representing the cryptographic signature
      * @throws IllegalStateException if the signature generation process fails due to an invalid
-     *         algorithm, key, or other unexpected issues during signing
+     *                               algorithm, key, or other unexpected issues during signing
      */
     protected String getSignature() {
         try {
