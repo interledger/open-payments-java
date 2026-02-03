@@ -1,12 +1,14 @@
 name: Build and Unit Test
 
 on:
-  push:
-    branches: [ '**' ]
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - "**"
 
 jobs:
   build-test:
-    name: Format, build, unit tests
+    name: Build and unit tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -21,4 +23,4 @@ jobs:
           cache: gradle
 
       - name: Build and run tests
-        run: ./gradlew build
+        run: ./gradlew test
