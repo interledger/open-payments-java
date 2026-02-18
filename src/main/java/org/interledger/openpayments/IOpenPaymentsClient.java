@@ -28,6 +28,11 @@ import java.util.Optional;
  * servers.
  */
 public interface IOpenPaymentsClient {
+    IOpenPaymentsAuthClient auth();
+    IOpenPaymentsWalletAddressClient walletAddress();
+    IOpenPaymentsQuoteClient quote();
+    IOpenPaymentsPaymentClient payment();
+
     /**
      * Retrieves the wallet address associated with the specified URL.
      * The wallet address provides a secure identifier and acts as a service

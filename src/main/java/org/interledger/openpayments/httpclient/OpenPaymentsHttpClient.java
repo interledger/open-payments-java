@@ -2,7 +2,9 @@ package org.interledger.openpayments.httpclient;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.interledger.openpayments.IOpenPaymentsAuthClient;
 import org.interledger.openpayments.IOpenPaymentsClient;
+import org.interledger.openpayments.IOpenPaymentsWalletAddressClient;
 import org.interledger.openpayments.exception.OpenPaymentsAPIException;
 import org.interledger.openpayments.exception.OpenPaymentsClientException;
 import org.interledger.openpayments.mapper.OpenPaymentsObjectMapper;
@@ -63,6 +65,52 @@ public class OpenPaymentsHttpClient implements IOpenPaymentsClient {
     private final HttpClient client;
     private final OpenPaymentsObjectMapper mapper = new OpenPaymentsObjectMapper();
     private final HttpLogger httpLogger;
+
+
+    private IOpenPaymentsWalletAddressClient cWalletAddress;
+
+    private static class HttpOPWalletAddressClient implements IOpenPaymentsWalletAddressClient {
+
+        public HttpOPWalletAddressClient() {
+
+        }
+
+        /**
+         * Retrieves a wallet address by sending a GET request to the specified URL.
+         *
+         * @param url the URL endpoint from which to fetch the wallet address
+         * @return a {@code WalletAddress} object representing the fetched wallet address
+         * @throws OpenPaymentsClientException if the URL is invalid, the HTTP request fails, or deserialization fails
+         */
+        @Override
+        public WalletAddress getWalletAddress(String url) {
+            log.debug("getWalletAddress: {}", url);
+            var urlObj = UtilGlobal.toUri(url);
+
+            var request = HttpRequest.newBuilder(urlObj)
+                    .GET()
+                    .header(ACCEPT_HEADER.toLowerCase(), APPLICATION_JSON)
+                    .timeout(Duration.of(this.options.getTimeOutInSeconds(), SECONDS))
+                    .build();
+
+            return this.send(request, WalletAddress.class);
+        }
+
+        @Override
+        public Ed25519Keys getKeys(String url) {
+            return null;
+        }
+    }
+
+    @Override
+    public IOpenPaymentsAuthClient auth() {
+        if (this.cWalletAddress == null) {
+            this.cWalletAddress = new HttpOPWalletAddressClient(
+                    
+            )
+        }
+        return this.cWalletAddress;
+    }
 
     /**
      * The ResourcePath class provides a collection of constant string values
