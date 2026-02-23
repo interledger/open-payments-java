@@ -21,7 +21,7 @@ public interface IOpenPaymentsWalletAddressClient {
      * @param url the URL associated with the desired wallet address
      * @return the wallet address corresponding to the provided URL
      */
-    WalletAddress getWalletAddress(String url);
+    WalletAddress get(String url);
 
     /**
      * Retrieves Ed25519 public and private keys from the specified URL.
@@ -32,5 +32,5 @@ public interface IOpenPaymentsWalletAddressClient {
      *         If the keys cannot be retrieved or the URL is invalid, it may throw
      *         an exception or return null based on the implementation.
      */
-    Ed25519Keys getKeys(String url);
+    Ed25519Keys keys(String url);
 }

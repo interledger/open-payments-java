@@ -1,10 +1,13 @@
 package org.interledger.openpayments;
 
 import org.interledger.openpayments.model.IAuthServer;
+import org.interledger.openpayments.model.common.Amount;
 import org.interledger.openpayments.model.grant.AccessAction;
 import org.interledger.openpayments.model.grant.Grant;
 import org.interledger.openpayments.model.outgoingpayment.OutgoingPayment;
 import org.interledger.openpayments.model.walletaddress.WalletAddress;
+
+import java.net.URI;
 
 /**
  * Interledger Open Payments Client.
@@ -23,7 +26,7 @@ public interface IOpenPaymentsAuthClient {
      * @param actions the actions associated with the granted permissions.
      * @return the created grant for the specified receiver and actions
      */
-    Grant createGrantIncomingPayment(WalletAddress receiver, AccessAction... actions);
+    Grant grantIncomingPayment(WalletAddress receiver, AccessAction... actions);
     
     /**
      * Creates a grant for quoting payments using the given wallet address.
@@ -38,7 +41,34 @@ public interface IOpenPaymentsAuthClient {
      *         access token and optional continuation details, for quoting payments
      *         on behalf of the sender.
      */
-    Grant createGrantQuote(WalletAddress sender, AccessAction... actions);
+    Grant grantQuote(WalletAddress sender, AccessAction... actions);
+
+    /**
+     * Creates a continuation grant for an outgoing payment request.
+     * This method produces an authorization grant that can be used to continue
+     * the process of an outgoing payment after the initial interaction.
+     *
+     * @param sender the wallet address of the payment sender. This identifies the
+     *               account initiating the outgoing payment request.
+     * @param debitAmount the amount to be debited from the sender's wallet account.
+     * @param returnUrl the URI to which the user will be redirected after
+     *                  completing the interaction required for the outgoing
+     *                  payment grant.
+     * @param nonce a unique identifier to prevent replay attacks and ensure
+     *              request integrity. It serves as part of the grant continuation
+     *              process.
+     *
+     * @return an OutgoingPayment object containing the details of the continuation
+     *         grant. This includes the continuation information, optional user
+     *         interaction details, or an access token based on the authorization
+     *         flow.
+     */
+    OutgoingPayment grantContinuation(
+            WalletAddress sender,
+            Amount debitAmount,
+            URI returnUrl,
+            String nonce
+    );
 
     /**
      * Finalizes the process for creating a grant associated with an outgoing payment.
@@ -54,13 +84,13 @@ public interface IOpenPaymentsAuthClient {
      * @return a Grant object representing the finalized access credentials, including
      *         the access token and any continuation details for the outgoing payment.
      */
-    Grant createGrantFinalize(OutgoingPayment outgoingPayment, String interactRef);
+    Grant grantFinalize(OutgoingPayment outgoingPayment, String interactRef);
 
     /**
      * Cancel a grant.
      * @param grant the grant object that represents the grant to be canceled
      */
-    void createGrantCancel(Grant grant);
+    void grantCancel(Grant grant);
 
     /**
      * Creates a new grant for an incoming payment request using the specified authentication server and grant ID.
