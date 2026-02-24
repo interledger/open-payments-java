@@ -215,7 +215,7 @@ public class OpenPaymentsHttpClientTest {
                   keys),
           arg(
               "createGrantIncomingPayment",
-              () -> opClient.auth().grantIncomingPayment(walletAddress),
+              () -> opClient.auth().grant().incomingPayment(walletAddress),
               grantForIncomingPayment),
           arg(
               "createIncomingPayment",
@@ -223,7 +223,7 @@ public class OpenPaymentsHttpClientTest {
                   opClient.payment().incomingPayment(
                       walletAddress, grantForIncomingPayment, BigDecimal.valueOf(100)),
               incomingPayment),
-          arg("createGrantQuote", () -> opClient.auth().grantQuote(walletAddress), grantForQuote),
+          arg("createGrantQuote", () -> opClient.auth().grant().quote(walletAddress), grantForQuote),
           arg(
               "createQuote",
               () -> opClient.quote().create(
@@ -233,12 +233,12 @@ public class OpenPaymentsHttpClientTest {
           arg(
               "createGrantContinuation",
               () ->
-                  opClient.auth().grantContinuation(
+                  opClient.auth().grant().continuation(
                       walletAddress, quote.getDebitAmount(), URI.create("https://app/cb"), "nonce123"),
               outgoingPayment),
           arg(
               "createGrantFinalize",
-              () -> opClient.auth().grantFinalize(outgoingPayment, "interact-123"),
+              () -> opClient.auth().grant().finalize(outgoingPayment, "interact-123"),
               grantForIncomingPayment),
           arg(
               "createFinalizePayment",

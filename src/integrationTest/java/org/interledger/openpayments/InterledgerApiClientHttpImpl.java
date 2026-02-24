@@ -231,7 +231,7 @@ class InterledgerApiClientHttpImpl {
         // incoming payments on the receiver's wallet.
         log.info("********");
         log.info("STEP 1: Create pending grant for receiver");
-        var grantRequest = this.client.auth().grantIncomingPayment(receiverWallet);
+        var grantRequest = this.client.auth().grant().incomingPayment(receiverWallet);
         assertNotNull(grantRequest);
         log.info("Receiver grant created with token: " + grantRequest.getAccess().getToken().substring(0, 10) + "...");
 
@@ -259,7 +259,7 @@ class InterledgerApiClientHttpImpl {
         // This is needed to calculate transaction fees and exchange rates.
         log.info("********");
         log.info("STEP 3: Create quote request grant for sender");
-        var quoteRequest = this.client.auth().grantQuote(senderWallet);
+        var quoteRequest = this.client.auth().grant().quote(senderWallet);
         assertNotNull(quoteRequest);
         log.info("Quote request grant created for sender wallet");
 
@@ -293,7 +293,7 @@ class InterledgerApiClientHttpImpl {
 
         var urlToOpen = "http://localhost:%d?paymentId=1234".formatted(port);
         // Create outing payment from quote:
-        var opContinueInteract = this.client.auth().grantContinuation(
+        var opContinueInteract = this.client.auth().grant().continuation(
                 senderWallet,
                 quote.getDebitAmount(),
                 URI.create(urlToOpen),
@@ -345,7 +345,7 @@ class InterledgerApiClientHttpImpl {
 
         if (interactReference != null && !interactReference.isBlank()) {
             log.info("User approved payment - finalizing with reference: " + interactReference);
-            Grant finalized = this.client.auth().grantFinalize(opContinueInteract, interactReference);
+            Grant finalized = this.client.auth().grant().finalize(opContinueInteract, interactReference);
             assertNotNull(finalized);
             // STEP 6A: Finalize the grant using the interact reference
             // This confirms the user's authorization and provides final access token
@@ -411,7 +411,7 @@ class InterledgerApiClientHttpImpl {
         // incoming payments on the receiver's wallet.
         log.info("********");
         log.info("STEP 1: Create pending grant for receiver");
-        var ipGrant = this.client.auth().grantIncomingPayment(receiverWallet);
+        var ipGrant = this.client.auth().grant().incomingPayment(receiverWallet);
         assertNotNull(ipGrant);
         log.info("Receiver grant created with token: " + ipGrant.getAccess().getToken().substring(0, 10) + "...");
 
@@ -446,7 +446,7 @@ class InterledgerApiClientHttpImpl {
 
         var urlToOpen = "http://localhost:%d?paymentId=1234".formatted(port);
         // Create outing payment from quote:
-        var opContinueInteract = this.client.auth().grantContinuation(
+        var opContinueInteract = this.client.auth().grant().continuation(
                 senderWallet,
                 incomingPayment.getIncomingAmount(),
                 //quote.getDebitAmount(),
@@ -499,7 +499,7 @@ class InterledgerApiClientHttpImpl {
 
         if (interactReference != null && !interactReference.isBlank()) {
             log.info("User approved payment - finalizing with reference: " + interactReference);
-            var finalized = this.client.auth().grantFinalize(opContinueInteract, interactReference);
+            var finalized = this.client.auth().grant().finalize(opContinueInteract, interactReference);
             assertNotNull(finalized);
             // STEP 6A: Finalize the grant using the interact reference
             // This confirms the user's authorization and provides final access token

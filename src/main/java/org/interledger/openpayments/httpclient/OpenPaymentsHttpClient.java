@@ -505,14 +505,23 @@ public class OpenPaymentsHttpClient implements IOpenPaymentsClient {
     }
 
     /**
-     * Implements functionality to facilitate Open Payments (OP) authorization workflows.
-     * This class extends {@code AHttpOPBaseClient} and provides methods for creating and managing
-     * grants, token rotation, and revocation for the Open Payments protocol.
-     * It operates as an HTTP client for connecting to authentication servers and managing wallet-based
-     * transactions.
+     * Implementation of the {@link IOpenPaymentsGrantClient} interface for managing grants in Open Payments.
+     * This client is responsible for creating, finalizing, and canceling grants for various payment-related actions.
+     * It relies on the {@code OpenPaymentsHttpClient} for executing HTTP requests specific to the Open Payments APIs.
+     *
+     * This class extends {@link AHttpOPBaseClient}, inheriting base functionality for HTTP client management,
+     * and provides specific implementations for interacting with grant-related endpoints.
+     *
+     * The {@code HttpOPGrantClient} class enables operations such as:
+     * - Creating grants for incoming payments.
+     * - Generating quotes involving access actions.
+     * - Initiating and finalizing grants for outgoing payments.
+     * - Canceling previously issued grants.
+     *
+     * All operations ensure the validity of input parameters and handle their respective HTTP request execution.
      */
-    private static class HttpOPAuthClient extends AHttpOPBaseClient implements IOpenPaymentsAuthClient {
-        public HttpOPAuthClient(OpenPaymentsHttpClient httpClient) {
+    private static class HttpOPGrantClient extends AHttpOPBaseClient implements IOpenPaymentsGrantClient {
+        public HttpOPGrantClient(OpenPaymentsHttpClient httpClient) {
             super(httpClient);
         }
 
@@ -526,7 +535,7 @@ public class OpenPaymentsHttpClient implements IOpenPaymentsClient {
          * @throws IllegalArgumentException if the receiver is null or its auth server is empty
          */
         @Override
-        public Grant grantIncomingPayment(WalletAddress receiver, AccessAction ... actions) {
+        public Grant incomingPayment(WalletAddress receiver, AccessAction ... actions) {
             log.debug("grantIncomingPayment: {}", receiver);
 
             ensureNotNull(receiver, "WalletAddress receiver cannot be null");
@@ -550,7 +559,7 @@ public class OpenPaymentsHttpClient implements IOpenPaymentsClient {
          * @throws NullPointerException if the sender parameter is null
          */
         @Override
-        public Grant grantQuote(WalletAddress sender, AccessAction ... actions) {
+        public Grant quote(WalletAddress sender, AccessAction ... actions) {
             log.debug("grantQuote: {}", sender);
             ensureNotNull(sender, "WalletAddress sender cannot be null");
 
@@ -576,7 +585,7 @@ public class OpenPaymentsHttpClient implements IOpenPaymentsClient {
          * @throws IllegalArgumentException if any of the input parameters are null or invalid.
          */
         @Override
-        public OutgoingPayment grantContinuation(
+        public OutgoingPayment continuation(
                 WalletAddress sender,
                 Amount debitAmount,
                 URI returnUrl,
@@ -614,7 +623,7 @@ public class OpenPaymentsHttpClient implements IOpenPaymentsClient {
          * @throws IllegalArgumentException If any of the parameters are null or invalid.
          */
         @Override
-        public Grant grantFinalize(OutgoingPayment outgoingPayment, String interactRef) {
+        public Grant finalize(OutgoingPayment outgoingPayment, String interactRef) {
             log.debug("grantFinalize: ({},{})", outgoingPayment, interactRef);
 
             ensureNotNull(outgoingPayment, "OutgoingPayment cannot be null");
@@ -628,6 +637,57 @@ public class OpenPaymentsHttpClient implements IOpenPaymentsClient {
                     .getRequest(this.baseClient.options);
 
             return this.baseClient.send(request, Grant.class);
+        }
+
+        /**
+         * Cancels a previously issued grant by sending a DELETE request to the access
+         * continuation URI associated with the grant. This method ensures that the grant
+         * is not null before proceeding, and uses a signature request to securely perform the operation.
+         *
+         * @param grant The Grant object representing the access to be canceled. This object
+         *              must not be null and should contain the required URI and access token
+         *              information for the cancellation.
+         */
+        @Override
+        public void cancel(Grant grant) {
+            log.debug("grantCancel: ({})", grant);
+
+            ensureNotNull(grant, "Grant cannot be null");
+
+            var request = new SignatureRequestBuilder(this.baseClient.privateKey, this.baseClient.keyId, this.baseClient.mapper)
+                    .DELETE()
+                    .target(grant.getAccessContinue().getUri())
+                    .accessToken(this.baseClient.extractAccessToken(grant))
+                    .getRequest(this.baseClient.options);
+
+            this.baseClient.send(request);
+        }
+    }
+
+    /**
+     * Implements functionality to facilitate Open Payments (OP) authorization workflows.
+     * This class extends {@code AHttpOPBaseClient} and provides methods for creating and managing
+     * grants, token rotation, and revocation for the Open Payments protocol.
+     * It operates as an HTTP client for connecting to authentication servers and managing wallet-based
+     * transactions.
+     */
+    private static class HttpOPAuthClient extends AHttpOPBaseClient implements IOpenPaymentsAuthClient {
+        private IOpenPaymentsGrantClient gGrant;
+        public HttpOPAuthClient(OpenPaymentsHttpClient httpClient) {
+            super(httpClient);
+        }
+
+        /**
+         * Provides an instance of the {@link IOpenPaymentsGrantClient} to manage grant-related operations.
+         * If the client instance does not already exist, it initializes a new {@link HttpOPGrantClient}
+         * based on the provided base client.
+         *
+         * @return an instance of {@link IOpenPaymentsGrantClient} for grant-related interactions
+         */
+        @Override
+        public IOpenPaymentsGrantClient grant() {
+            if (this.gGrant == null) this.gGrant = new HttpOPGrantClient(this.baseClient);
+            return this.gGrant;
         }
 
         /**
@@ -673,30 +733,6 @@ public class OpenPaymentsHttpClient implements IOpenPaymentsClient {
             var request = new SignatureRequestBuilder(this.baseClient.privateKey, this.baseClient.keyId, this.baseClient.mapper)
                     .DELETE()
                     .target(String.format("%s/token/%s", authServer.getAuthServer(), tokenId))
-                    .accessToken(this.baseClient.extractAccessToken(grant))
-                    .getRequest(this.baseClient.options);
-
-            this.baseClient.send(request);
-        }
-
-        /**
-         * Cancels a previously issued grant by sending a DELETE request to the access
-         * continuation URI associated with the grant. This method ensures that the grant
-         * is not null before proceeding, and uses a signature request to securely perform the operation.
-         *
-         * @param grant The Grant object representing the access to be canceled. This object
-         *              must not be null and should contain the required URI and access token
-         *              information for the cancellation.
-         */
-        @Override
-        public void grantCancel(Grant grant) {
-            log.debug("grantCancel: ({})", grant);
-
-            ensureNotNull(grant, "Grant cannot be null");
-
-            var request = new SignatureRequestBuilder(this.baseClient.privateKey, this.baseClient.keyId, this.baseClient.mapper)
-                    .DELETE()
-                    .target(grant.getAccessContinue().getUri())
                     .accessToken(this.baseClient.extractAccessToken(grant))
                     .getRequest(this.baseClient.options);
 
