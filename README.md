@@ -79,7 +79,7 @@ Maven dependency (Please see [Maven Central](https://central.sonatype.com/artifa
 <dependency>
     <groupId>org.interledger</groupId>
     <artifactId>open-payments</artifactId>
-    <version>1.0.1</version>
+    <version>1.2.0</version>
 </dependency>
 ```
 
@@ -100,5 +100,5 @@ Gradle commands:
 ./gradlew integrationTest
 
 # Publish to local Maven repository
-./gradlew publishToMavenLocal -Prelease.version=1.0.0
+./gradlew publishToMavenLocal -Prelease.version=1.2.0
 ```

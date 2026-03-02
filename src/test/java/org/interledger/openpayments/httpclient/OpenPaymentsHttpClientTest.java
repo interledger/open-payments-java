@@ -207,42 +207,42 @@ public class OpenPaymentsHttpClientTest {
       return Stream.of(
           arg(
               "getWalletAddress",
-              () -> opClient.getWalletAddress("https://wallet.example.com"),
+              () -> opClient.walletAddress().get("https://wallet.example.com"),
               walletAddress),
           arg(
                   "getKeys",
-                  () -> opClient.getKeys("https://wallet.example.com"),
+                  () -> opClient.walletAddress().keys("https://wallet.example.com"),
                   keys),
           arg(
               "createGrantIncomingPayment",
-              () -> opClient.createGrantIncomingPayment(walletAddress),
+              () -> opClient.auth().grant().incomingPayment(walletAddress),
               grantForIncomingPayment),
           arg(
               "createIncomingPayment",
               () ->
-                  opClient.createIncomingPayment(
+                  opClient.payment().incomingPayment(
                       walletAddress, grantForIncomingPayment, BigDecimal.valueOf(100)),
               incomingPayment),
-          arg("createGrantQuote", () -> opClient.createGrantQuote(walletAddress), grantForQuote),
+          arg("createGrantQuote", () -> opClient.auth().grant().quote(walletAddress), grantForQuote),
           arg(
               "createQuote",
-              () -> opClient.createQuote(
+              () -> opClient.quote().create(
                       "quote-token-123", walletAddress, incomingPayment, Optional.empty(), Optional.empty()
               ),
               quote),
           arg(
               "createGrantContinuation",
               () ->
-                  opClient.createGrantContinuation(
+                  opClient.auth().grant().continuation(
                       walletAddress, quote.getDebitAmount(), URI.create("https://app/cb"), "nonce123"),
               outgoingPayment),
           arg(
               "createGrantFinalize",
-              () -> opClient.createGrantFinalize(outgoingPayment, "interact-123"),
+              () -> opClient.auth().grant().finalize(outgoingPayment, "interact-123"),
               grantForIncomingPayment),
           arg(
               "createFinalizePayment",
-              () -> opClient.createFinalizePayment(grantForIncomingPayment, walletAddress, quote),
+              () -> opClient.payment().finalizePayment(grantForIncomingPayment, walletAddress, quote),
               payment));
     }
 
