@@ -70,7 +70,7 @@ class InterledgerApiClientHttpImpl {
      */
     @Test
     public void getClientWallet() {
-        var walletAdd = this.client.getWalletAddress(TestHelper.getClientWalletAddress());
+        var walletAdd = this.client.walletAddress().get(TestHelper.getClientWalletAddress());
         assertNotNull(walletAdd);
 
         Assertions.assertEquals(TestHelper.getClientWalletAddress(), walletAdd.getId());
@@ -105,7 +105,7 @@ class InterledgerApiClientHttpImpl {
      */
     @Test
     public void getKeys() {
-        var keys = this.client.getKeys(TestHelper.getClientWalletAddress());
+        var keys = this.client.walletAddress().keys(TestHelper.getClientWalletAddress());
         assertNotNull(keys);
         var firstKey = (Ed25519PublicKey)keys.getKeys().toArray()[0];
         assertNotNull(firstKey);
@@ -134,7 +134,7 @@ class InterledgerApiClientHttpImpl {
     // Get receiver wallet data
     @Test
     public void getReceiverWallet() {
-        var wallet = this.client.getWalletAddress(TestHelper.getReceiverWalletAddress());
+        var wallet = this.client.walletAddress().get(TestHelper.getReceiverWalletAddress());
         assertNotNull(wallet);
 
         Assertions.assertEquals(TestHelper.getReceiverWalletAddress(), wallet.getId());
@@ -162,7 +162,7 @@ class InterledgerApiClientHttpImpl {
      */
     @Test
     public void getSenderWallet() {
-        var wallet = client.getWalletAddress(TestHelper.getSenderWalletAddress());
+        var wallet = client.walletAddress().get(TestHelper.getSenderWalletAddress());
         assertNotNull(wallet);
 
         Assertions.assertEquals(TestHelper.getSenderWalletAddress(), wallet.getId());
@@ -221,7 +221,7 @@ class InterledgerApiClientHttpImpl {
         // authorization server, and resource server endpoints
         log.info("********");
         log.info("STEP 0: Get receiver wallet information");
-        var receiverWallet = client.getWalletAddress(TestHelper.getReceiverWalletAddress());
+        var receiverWallet = client.walletAddress().get(TestHelper.getReceiverWalletAddress());
         assertNotNull(receiverWallet);
         log.info("Receiver wallet discovered: " + receiverWallet.getPublicName() + " (" + receiverWallet.getAssetCode() + ")");
 
@@ -231,7 +231,7 @@ class InterledgerApiClientHttpImpl {
         // incoming payments on the receiver's wallet.
         log.info("********");
         log.info("STEP 1: Create pending grant for receiver");
-        var grantRequest = this.client.createGrantIncomingPayment(receiverWallet);
+        var grantRequest = this.client.auth().grant().incomingPayment(receiverWallet);
         assertNotNull(grantRequest);
         log.info("Receiver grant created with token: " + grantRequest.getAccess().getToken().substring(0, 10) + "...");
 
@@ -240,7 +240,7 @@ class InterledgerApiClientHttpImpl {
         // This establishes the payment destination and amount that the sender will pay to.
         log.info("********");
         log.info("STEP 2: Create incoming payment request");
-        var incomingPayment = this.client.createIncomingPayment(receiverWallet, grantRequest, BigDecimal.valueOf(11.25));
+        var incomingPayment = this.client.payment().incomingPayment(receiverWallet, grantRequest, BigDecimal.valueOf(11.25));
         assertNotNull(incomingPayment);
         log.info("Incoming payment created: " + incomingPayment.getId() + " for " +
                 incomingPayment.getIncomingAmount().getValue() + " " + incomingPayment.getIncomingAmount().getAssetCode());
@@ -250,7 +250,7 @@ class InterledgerApiClientHttpImpl {
         // We simulate this by getting the sender's wallet information.
         log.info("********");
         log.info("STEP 2.5: Get sender wallet information (user enters their wallet)");
-        var senderWallet = this.client.getWalletAddress(TestHelper.getSenderWalletAddress());
+        var senderWallet = this.client.walletAddress().get(TestHelper.getSenderWalletAddress());
         assertNotNull(senderWallet);
         log.info("Sender wallet discovered: " + senderWallet.getPublicName() + " (" + senderWallet.getAssetCode() + ")");
 
@@ -259,7 +259,7 @@ class InterledgerApiClientHttpImpl {
         // This is needed to calculate transaction fees and exchange rates.
         log.info("********");
         log.info("STEP 3: Create quote request grant for sender");
-        var quoteRequest = this.client.createGrantQuote(senderWallet);
+        var quoteRequest = this.client.auth().grant().quote(senderWallet);
         assertNotNull(quoteRequest);
         log.info("Quote request grant created for sender wallet");
 
@@ -268,7 +268,7 @@ class InterledgerApiClientHttpImpl {
         // including any transaction fees. The quote links the sender to the incoming payment.
         log.info("********");
         log.info("STEP 4: Generate payment quote");
-        var quote = this.client.createQuote(
+        var quote = this.client.quote().create(
                 quoteRequest.getAccess().getToken(),
                 senderWallet,
                 incomingPayment,
@@ -293,7 +293,7 @@ class InterledgerApiClientHttpImpl {
 
         var urlToOpen = "http://localhost:%d?paymentId=1234".formatted(port);
         // Create outing payment from quote:
-        var opContinueInteract = this.client.createGrantContinuation(
+        var opContinueInteract = this.client.auth().grant().continuation(
                 senderWallet,
                 quote.getDebitAmount(),
                 URI.create(urlToOpen),
@@ -333,7 +333,7 @@ class InterledgerApiClientHttpImpl {
         // Verify the payment state before attempting to finalize it
         log.info("********");
         log.info("STEP 5.5: Check incoming payment status before finalization");
-        var payment = this.client.getIncomingPayment(incomingPayment.getId(), grantRequest);
+        var payment = this.client.payment().getIncomingPayment(incomingPayment.getId(), grantRequest);
         assertNotNull(payment);
         assertFalse(payment.isCompleted()); // Should not be completed yet
         log.info("Payment status before finalization: completed=" + payment.isCompleted());
@@ -345,7 +345,7 @@ class InterledgerApiClientHttpImpl {
 
         if (interactReference != null && !interactReference.isBlank()) {
             log.info("User approved payment - finalizing with reference: " + interactReference);
-            Grant finalized = this.client.createGrantFinalize(opContinueInteract, interactReference);
+            Grant finalized = this.client.auth().grant().finalize(opContinueInteract, interactReference);
             assertNotNull(finalized);
             // STEP 6A: Finalize the grant using the interact reference
             // This confirms the user's authorization and provides final access token
@@ -354,7 +354,7 @@ class InterledgerApiClientHttpImpl {
             if (finalized.getAccess().getToken() != null) {
                 // STEP 6B: Execute the actual payment using the finalized grant
                 // This transfers the funds from sender to receiver
-                var finalizedPayment = this.client.createFinalizePayment(finalized, senderWallet, quote);
+                var finalizedPayment = this.client.payment().finalizePayment(finalized, senderWallet, quote);
                 assertNotNull(finalizedPayment);
                 assertFalse(finalizedPayment.getFailed());
                 log.info("Payment executed successfully: " + finalizedPayment.getId());
@@ -375,7 +375,7 @@ class InterledgerApiClientHttpImpl {
         while (!payment.isCompleted() && count < 10) { // wait at least 10s ...
             count++;
 
-            payment = this.client.getIncomingPayment(incomingPayment.getId(), grantRequest);
+            payment = this.client.payment().getIncomingPayment(incomingPayment.getId(), grantRequest);
             assertNotNull(payment);
             log.info("********");
             log.info("Payment status check #" + count + " - Completed: " + payment.isCompleted());
@@ -401,7 +401,7 @@ class InterledgerApiClientHttpImpl {
         // authorization server, and resource server endpoints
         log.info("********");
         log.info("STEP 0: Get receiver wallet information");
-        var receiverWallet = client.getWalletAddress(TestHelper.getReceiverWalletAddress());
+        var receiverWallet = client.walletAddress().get(TestHelper.getReceiverWalletAddress());
         assertNotNull(receiverWallet);
         log.info("Receiver wallet discovered: " + receiverWallet.getPublicName() + " (" + receiverWallet.getAssetCode() + ")");
 
@@ -411,7 +411,7 @@ class InterledgerApiClientHttpImpl {
         // incoming payments on the receiver's wallet.
         log.info("********");
         log.info("STEP 1: Create pending grant for receiver");
-        var ipGrant = this.client.createGrantIncomingPayment(receiverWallet);
+        var ipGrant = this.client.auth().grant().incomingPayment(receiverWallet);
         assertNotNull(ipGrant);
         log.info("Receiver grant created with token: " + ipGrant.getAccess().getToken().substring(0, 10) + "...");
 
@@ -421,7 +421,7 @@ class InterledgerApiClientHttpImpl {
         log.info("********");
         log.info("STEP 2: Create incoming payment request");
         var amount = BigDecimal.valueOf(12.25);
-        var incomingPayment = this.client.createIncomingPayment(receiverWallet, ipGrant, amount);
+        var incomingPayment = this.client.payment().incomingPayment(receiverWallet, ipGrant, amount);
         assertNotNull(incomingPayment);
         log.info("Incoming payment created: " + incomingPayment.getId() + " for " +
                 incomingPayment.getIncomingAmount().getValue() + " " + incomingPayment.getIncomingAmount().getAssetCode());
@@ -431,7 +431,7 @@ class InterledgerApiClientHttpImpl {
         // We simulate this by getting the sender's wallet information.
         log.info("********");
         log.info("STEP 2.5: Get sender wallet information (user enters their wallet)");
-        var senderWallet = this.client.getWalletAddress(TestHelper.getSenderWalletAddress());
+        var senderWallet = this.client.walletAddress().get(TestHelper.getSenderWalletAddress());
         assertNotNull(senderWallet);
         log.info("Sender wallet discovered: " + senderWallet.getPublicName() + " (" + senderWallet.getAssetCode() + ")");
 
@@ -446,7 +446,7 @@ class InterledgerApiClientHttpImpl {
 
         var urlToOpen = "http://localhost:%d?paymentId=1234".formatted(port);
         // Create outing payment from quote:
-        var opContinueInteract = this.client.createGrantContinuation(
+        var opContinueInteract = this.client.auth().grant().continuation(
                 senderWallet,
                 incomingPayment.getIncomingAmount(),
                 //quote.getDebitAmount(),
@@ -487,7 +487,7 @@ class InterledgerApiClientHttpImpl {
         // Verify the payment state before attempting to finalize it
         log.info("********");
         log.info("STEP 4.5: Check incoming payment status before finalization");
-        var payment = this.client.getIncomingPayment(incomingPayment.getId(), ipGrant);
+        var payment = this.client.payment().getIncomingPayment(incomingPayment.getId(), ipGrant);
         assertNotNull(payment);
         assertFalse(payment.isCompleted()); // Should not be completed yet
         log.info("Payment status before finalization: completed=" + payment.isCompleted());
@@ -499,7 +499,7 @@ class InterledgerApiClientHttpImpl {
 
         if (interactReference != null && !interactReference.isBlank()) {
             log.info("User approved payment - finalizing with reference: " + interactReference);
-            var finalized = this.client.createGrantFinalize(opContinueInteract, interactReference);
+            var finalized = this.client.auth().grant().finalize(opContinueInteract, interactReference);
             assertNotNull(finalized);
             // STEP 6A: Finalize the grant using the interact reference
             // This confirms the user's authorization and provides final access token
@@ -509,7 +509,7 @@ class InterledgerApiClientHttpImpl {
                 // 2x incoming payments.
                 // STEP 6B: Execute the actual payment using the finalized grant
                 // This transfers the funds from sender to receiver
-                var finalizedPayment_1Of2 = this.client.createFinalizePayment(
+                var finalizedPayment_1Of2 = this.client.payment().finalizePayment(
                         finalized,
                         senderWallet,
                         payment,
@@ -519,7 +519,7 @@ class InterledgerApiClientHttpImpl {
                 assertFalse(finalizedPayment_1Of2.getFailed());
                 log.info("Payment (1 of 2) executed successfully: " + finalizedPayment_1Of2.getId());
 
-                var finalizedPayment_2Of2 = this.client.createFinalizePayment(
+                var finalizedPayment_2Of2 = this.client.payment().finalizePayment(
                         finalized,
                         senderWallet,
                         payment,
@@ -540,7 +540,7 @@ class InterledgerApiClientHttpImpl {
         // STEP 7: COMPLETE THE INCOMING PAYMENT
         log.info("********");
         log.info("STEP 7: Complete the incoming payment");
-        var incomingPaymentComplete = this.client.createIncomingPaymentComplete(incomingPayment, ipGrant);
+        var incomingPaymentComplete = this.client.payment().incomingPaymentComplete(incomingPayment, ipGrant);
         assertNotNull(incomingPaymentComplete);
 
         // STEP 8: PAYMENT STATUS MONITORING
@@ -551,7 +551,7 @@ class InterledgerApiClientHttpImpl {
         while (!payment.isCompleted() && count < 15) { // wait at least 10s ...
             count++;
 
-            payment = this.client.getIncomingPayment(incomingPayment.getId(), ipGrant);
+            payment = this.client.payment().getIncomingPayment(incomingPayment.getId(), ipGrant);
             assertNotNull(payment);
             log.info("********");
             log.info("Payment status check #" + count + " - Completed: " + payment.isCompleted());

@@ -206,48 +206,48 @@ public class OpenPaymentsHttpClientTest {
             verify(httpClient).send(requestCaptor.capture(), eq(HttpResponse.BodyHandlers.ofString()));
         }
 
-        static Stream<Arguments> allClientMethods() {
-            return Stream.of(
-                arg(
-                    "getWalletAddress",
-                    () -> opClient.getWalletAddress("https://wallet.example.com"),
-                    walletAddress),
-                arg(
-                    "getKeys",
-                    () -> opClient.getKeys("https://wallet.example.com"),
-                    keys),
-                arg(
-                    "createGrantIncomingPayment",
-                    () -> opClient.createGrantIncomingPayment(walletAddress),
-                    grantForIncomingPayment),
-                arg(
-                    "createIncomingPayment",
-                    () ->
-                        opClient.createIncomingPayment(
-                            walletAddress, grantForIncomingPayment, BigDecimal.valueOf(100)),
-                    incomingPayment),
-                arg("createGrantQuote", () -> opClient.createGrantQuote(walletAddress), grantForQuote),
-                arg(
-                    "createQuote",
-                    () -> opClient.createQuote(
-                        "quote-token-123", walletAddress, incomingPayment, Optional.empty(), Optional.empty()
-                    ),
-                    quote),
-                arg(
-                    "createGrantContinuation",
-                    () ->
-                        opClient.createGrantContinuation(
-                            walletAddress, quote.getDebitAmount(), URI.create("https://app/cb"), "nonce123"),
-                    outgoingPayment),
-                arg(
-                    "createGrantFinalize",
-                    () -> opClient.createGrantFinalize(outgoingPayment, "interact-123"),
-                    grantForIncomingPayment),
-                arg(
-                    "createFinalizePayment",
-                    () -> opClient.createFinalizePayment(grantForIncomingPayment, walletAddress, quote),
-                    payment));
-        }
+    static Stream<Arguments> allClientMethods() {
+      return Stream.of(
+          arg(
+              "getWalletAddress",
+              () -> opClient.walletAddress().get("https://wallet.example.com"),
+              walletAddress),
+          arg(
+                  "getKeys",
+                  () -> opClient.walletAddress().keys("https://wallet.example.com"),
+                  keys),
+          arg(
+              "createGrantIncomingPayment",
+              () -> opClient.auth().grant().incomingPayment(walletAddress),
+              grantForIncomingPayment),
+          arg(
+              "createIncomingPayment",
+              () ->
+                  opClient.payment().incomingPayment(
+                      walletAddress, grantForIncomingPayment, BigDecimal.valueOf(100)),
+              incomingPayment),
+          arg("createGrantQuote", () -> opClient.auth().grant().quote(walletAddress), grantForQuote),
+          arg(
+              "createQuote",
+              () -> opClient.quote().create(
+                      "quote-token-123", walletAddress, incomingPayment, Optional.empty(), Optional.empty()
+              ),
+              quote),
+          arg(
+              "createGrantContinuation",
+              () ->
+                  opClient.auth().grant().continuation(
+                      walletAddress, quote.getDebitAmount(), URI.create("https://app/cb"), "nonce123"),
+              outgoingPayment),
+          arg(
+              "createGrantFinalize",
+              () -> opClient.auth().grant().finalize(outgoingPayment, "interact-123"),
+              grantForIncomingPayment),
+          arg(
+              "createFinalizePayment",
+              () -> opClient.payment().finalizePayment(grantForIncomingPayment, walletAddress, quote),
+              payment));
+    }
 
         private static <T> Arguments arg(String name, Supplier<T> call, Object response) {
             return Arguments.of(name, call, response);
