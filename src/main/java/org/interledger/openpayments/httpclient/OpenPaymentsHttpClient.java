@@ -16,7 +16,6 @@ import org.interledger.openpayments.model.key.Ed25519Keys;
 import org.interledger.openpayments.model.outgoingpayment.OutgoingPayment;
 import org.interledger.openpayments.model.outgoingpayment.OutgoingPaymentRequest;
 import org.interledger.openpayments.model.outgoingpayment.OutgoingPaymentsResult;
-import org.interledger.openpayments.model.payment.Payment;
 import org.interledger.openpayments.model.payment.PaymentRequest;
 import org.interledger.openpayments.model.quote.Quote;
 import org.interledger.openpayments.model.quote.QuoteRequest;
@@ -261,7 +260,7 @@ public class OpenPaymentsHttpClient implements IOpenPaymentsClient {
         }
 
         /**
-         * @see IOpenPaymentsPaymentClient#incomingPayment(WalletAddress,Grant,BigDecimal)
+         * @see IOpenPaymentsPaymentClient#createIncoming(WalletAddress,Grant,BigDecimal)
          * @param receiver the wallet address of the payment receiver. This identifies the
          *                 destination account for the incoming payment.
          * @param ipGrant  the grant that authorizes the creation of the incoming payment.
@@ -273,7 +272,7 @@ public class OpenPaymentsHttpClient implements IOpenPaymentsClient {
          * @return IncomingPayment
          */
         @Override
-        public IncomingPayment incomingPayment(WalletAddress receiver, Grant ipGrant, BigDecimal amount) {
+        public IncomingPayment createIncoming(WalletAddress receiver, Grant ipGrant, BigDecimal amount) {
             log.debug("incomingPayment: ({},{},{})", receiver, ipGrant, amount);
 
             ensureNotNull(receiver, "WalletAddress receiver cannot be null");
@@ -307,8 +306,8 @@ public class OpenPaymentsHttpClient implements IOpenPaymentsClient {
          * @return Payment
          */
         @Override
-        public Payment finalizePayment(Grant finalized, WalletAddress sender, Quote quote) {
-            log.debug("finalizePayment (Quote): ({},{})", sender, quote);
+        public OutgoingPayment createOutgoing(Grant finalized, WalletAddress sender, Quote quote) {
+            log.debug("createOutgoingPayment (Quote): ({},{})", sender, quote);
 
             ensureNotNull(finalized, "Grant finalized cannot be null");
             ensureNotNull(sender, "WalletAddress sender cannot be null");
@@ -324,7 +323,7 @@ public class OpenPaymentsHttpClient implements IOpenPaymentsClient {
                     .accessToken(this.baseClient.extractAccessToken(finalized))
                     .getRequest(this.baseClient.options);
 
-            return this.baseClient.send(request, Payment.class);
+            return this.baseClient.send(request, OutgoingPayment.class);
         }
 
         /**
@@ -339,13 +338,13 @@ public class OpenPaymentsHttpClient implements IOpenPaymentsClient {
          * @throws IllegalArgumentException if any of the required parameters are null
          */
         @Override
-        public Payment finalizePayment(
+        public OutgoingPayment createOutgoing(
                 Grant finalized,
                 WalletAddress sender,
                 IncomingPayment incomingPayment,
                 Amount debitAmount
         ) {
-            log.debug("finalizePayment (IncomingPayment): ({},{},{})", sender, incomingPayment, debitAmount);
+            log.debug("createOutgoingPayment (IncomingPayment): ({},{},{})", sender, incomingPayment, debitAmount);
 
             ensureNotNull(finalized, "Grant finalized cannot be null");
             ensureNotNull(sender, "WalletAddress sender cannot be null");
@@ -364,7 +363,7 @@ public class OpenPaymentsHttpClient implements IOpenPaymentsClient {
                     .accessToken(this.baseClient.extractAccessToken(finalized))
                     .getRequest(this.baseClient.options);
 
-            return this.baseClient.send(request, Payment.class);
+            return this.baseClient.send(request, OutgoingPayment.class);
         }
 
         /**
@@ -375,7 +374,7 @@ public class OpenPaymentsHttpClient implements IOpenPaymentsClient {
          * @return the {@code IncomingPayment} object fetched from the server based on the given payment details
          */
         @Override
-        public IncomingPayment getIncomingPayment(URI incomingPaymentUri, Grant grant) {
+        public IncomingPayment getIncoming(URI incomingPaymentUri, Grant grant) {
             log.debug("getIncomingPayment: {}", incomingPaymentUri);
             UtilGlobal.ensureNotNull(incomingPaymentUri, "incomingPaymentUri cannot be null");
             UtilGlobal.ensureNotNull(grant, "Grant cannot be null");
@@ -460,7 +459,7 @@ public class OpenPaymentsHttpClient implements IOpenPaymentsClient {
          * @throws NullPointerException if {@code outgoingPaymentUri} or {@code grantRequest} is null
          */
         @Override
-        public OutgoingPayment getOutgoingPayment(URI outgoingPaymentUri, Grant grant) {
+        public OutgoingPayment getOutgoing(URI outgoingPaymentUri, Grant grant) {
             log.debug("getOutgoingPayment: {}", outgoingPaymentUri);
             UtilGlobal.ensureNotNull(outgoingPaymentUri, "OutgoingPaymentUri cannot be null");
             UtilGlobal.ensureNotNull(grant, "Grant cannot be null");

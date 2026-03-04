@@ -79,7 +79,7 @@ Maven dependency (Please see [Maven Central](https://central.sonatype.com/artifa
 <dependency>
     <groupId>org.interledger</groupId>
     <artifactId>open-payments</artifactId>
-    <version>1.2.0</version>
+    <version>1.3.0</version>
 </dependency>
 ```
 
@@ -96,9 +96,18 @@ Gradle commands:
 
 ```sh
 
-# Run integration tests only
+# 1. Run integration tests only:
 ./gradlew integrationTest
 
-# Publish to local Maven repository
-./gradlew publishToMavenLocal -Prelease.version=1.2.0
+# 2. Publish to local Maven repository:
+./gradlew clean build publish
+
+# 3. Release to Maven Central:
+# Set the GPG key for signing the artifacts.
+export JRELEASER_GPG_PUBLIC_KEY="$(cat public.key.asc)"
+export JRELEASER_GPG_SECRET_KEY="$(cat private.key.asc)"
+
+# Run the tasks in order to release.
+./gradlew clean build publish
+./gradlew jreleaserDeploy
 ```

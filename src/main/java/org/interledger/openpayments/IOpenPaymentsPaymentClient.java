@@ -7,7 +7,6 @@ import org.interledger.openpayments.model.incomingpayment.IncomingPayment;
 import org.interledger.openpayments.model.incomingpayment.IncomingPaymentsResult;
 import org.interledger.openpayments.model.outgoingpayment.OutgoingPayment;
 import org.interledger.openpayments.model.outgoingpayment.OutgoingPaymentsResult;
-import org.interledger.openpayments.model.payment.Payment;
 import org.interledger.openpayments.model.quote.Quote;
 import org.interledger.openpayments.model.walletaddress.WalletAddress;
 
@@ -41,7 +40,7 @@ public interface IOpenPaymentsPaymentClient {
      *         contains details such as payment identifier, current status, and
      *         associated metadata.
      */
-    IncomingPayment incomingPayment(WalletAddress receiver, Grant ipGrant, BigDecimal amount);
+    IncomingPayment createIncoming(WalletAddress receiver, Grant ipGrant, BigDecimal amount);
 
     /**
      * Retrieves the current status of an incoming payment.
@@ -55,7 +54,7 @@ public interface IOpenPaymentsPaymentClient {
      * @see IncomingPayment
      * @see Grant
      */
-    IncomingPayment getIncomingPayment(URI incomingPaymentUri, Grant grant);
+    IncomingPayment getIncoming(URI incomingPaymentUri, Grant grant);
 
     /**
      * Retrieves incoming payment data for a specified wallet address.
@@ -84,7 +83,7 @@ public interface IOpenPaymentsPaymentClient {
      * @return a Payment object representing the completed payment transaction. It provides details such as
      *         the transaction status, identifier, and associated metadata.
      */
-    Payment finalizePayment(Grant finalized, WalletAddress sender, Quote quote);
+    OutgoingPayment createOutgoing(Grant finalized, WalletAddress sender, Quote quote);
 
     /**
      * Finalizes and processes an incoming payment using the provided grant, sender's wallet address,
@@ -102,7 +101,7 @@ public interface IOpenPaymentsPaymentClient {
      * @return a Payment object representing the finalized payment transaction.
      *         This object encapsulates details such as the payment status, identifier, and additional metadata.
      */
-    Payment finalizePayment(
+    OutgoingPayment createOutgoing(
             Grant finalized,
             WalletAddress sender,
             IncomingPayment incomingPayment, Amount debitAmount
@@ -126,7 +125,7 @@ public interface IOpenPaymentsPaymentClient {
      * @see OutgoingPayment
      * @see Grant
      */
-    OutgoingPayment getOutgoingPayment(URI outgoingPaymentUri, Grant grantRequest);
+    OutgoingPayment getOutgoing(URI outgoingPaymentUri, Grant grantRequest);
 
     /**
      * Retrieves a list of outgoing payments for the specified wallet address.
