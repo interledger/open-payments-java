@@ -97,10 +97,6 @@ checkstyle {
     maxWarnings = 0
 }
 
-tasks.named('check') {
-    dependsOn tasks.withType(Checkstyle)
-}
-
 tasks.withType(Checkstyle).configureEach {
     showViolations = true
     reports {

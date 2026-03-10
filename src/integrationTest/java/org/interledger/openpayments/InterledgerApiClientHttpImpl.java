@@ -24,12 +24,12 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
  * This class handles operations related to retrieving wallet information and
  * facilitating payment transactions by communicating with an Interledger-enabled
  * HTTP server.
- *
+ * <p>
  * Class Fields:
  * - client: The HTTP client used to send requests to the Interledger API server.
  * - httpServer: The HTTP server endpoint associated with the API client.
  * - log: Logger instance for capturing log messages and debugging information.
- *
+ * <p>
  * Methods:
  * - setUp(): Sets up the necessary configuration before each test case execution.
  * - getClientWallet(): Retrieves and validates client wallet information.
@@ -45,25 +45,25 @@ class InterledgerApiClientHttpImpl {
     @BeforeEach
     public void setUp() {
         client = OpenPaymentsHttpClient.defaultClient(
-                TestHelper.getClientWalletAddress(),
-                TestConfiguration.getClientPrivateKey(),
-                TestHelper.getClientKeyId()
+            TestHelper.getClientWalletAddress(),
+            TestConfiguration.getClientPrivateKey(),
+            TestHelper.getClientKeyId()
         );
     }
 
     /**
      * Validates the retrieval of the client wallet information using the specified
      * client wallet address from the test configuration.
-     *
+     * <p>
      * This test asserts that the wallet details obtained by the client correspond
      * to the expected client wallet attributes, which include:
-     *
+     * <p>
      * - Wallet ID matches the client wallet address.
      * - Public name matches the expected identifier.
      * - Asset code and scale match the correct currency attributes.
      * - Auth server URL is associated with the wallet as expected.
      * - Resource server URL is linked to the wallet as expected.
-     *
+     * <p>
      * The test ensures the wallet address is not null and that all critical parameters
      * conform to predefined configurations to validate the overall functionality and
      * correctness of client wallet retrieval.
@@ -74,8 +74,8 @@ class InterledgerApiClientHttpImpl {
         assertNotNull(walletAdd);
 
         Assertions.assertEquals(TestHelper.getClientWalletAddress(), walletAdd.getId());
-        Assertions.assertEquals("f25232d1", walletAdd.getPublicName());
-        Assertions.assertEquals("EUR", walletAdd.getAssetCode());
+        Assertions.assertEquals("test", walletAdd.getPublicName());
+        Assertions.assertEquals("USD", walletAdd.getAssetCode());
         Assertions.assertEquals(2, walletAdd.getAssetScale());
         // Auth and Resource server with tenant:
         Assertions.assertEquals("https://auth.interledger-test.dev/f537937b-7016-481b-b655-9f0d1014822c", walletAdd.getAuthServer());
@@ -84,19 +84,19 @@ class InterledgerApiClientHttpImpl {
 
     /**
      * Tests the retrieval of Ed25519 keys for a client wallet address.
-     *
+     * <p>
      * This test verifies the correct fetching and validation of Ed25519 keys using the
      * client wallet address obtained from the test configuration. The following assertions
      * are performed as part of the validation process:
-     *
+     * <p>
      * - Ensures the retrieved key collection is not null.
      * - Confirms that at least one key exists in the collection.
      * - Validates the algorithm ('alg') and curve ('crv') of the first key to ensure they
-     *   match the expected values ("EdDSA" for the algorithm and "Ed25519" for the curve).
-     *
+     * match the expected values ("EdDSA" for the algorithm and "Ed25519" for the curve).
+     * <p>
      * The test relies on {@link TestHelper#getClientWalletAddress()} to fetch the client wallet
      * address required for the retrieval process.
-     *
+     * <p>
      * Assertions:
      * - {@code assertNotNull(keys)}: Validates that the key collection is not null.
      * - {@code assertNotNull(firstKey)}: Ensures that the first key in the collection is not null.
@@ -107,7 +107,7 @@ class InterledgerApiClientHttpImpl {
     public void getKeys() {
         var keys = this.client.walletAddress().keys(TestHelper.getClientWalletAddress());
         assertNotNull(keys);
-        var firstKey = (Ed25519PublicKey)keys.getKeys().toArray()[0];
+        var firstKey = (Ed25519PublicKey) keys.getKeys().toArray()[0];
         assertNotNull(firstKey);
 
         Assertions.assertEquals("EdDSA", firstKey.getAlg());
@@ -117,16 +117,16 @@ class InterledgerApiClientHttpImpl {
     /**
      * Validates the retrieval of the receiver wallet information using the specified
      * receiver wallet address from the test configuration.
-     *
+     * <p>
      * This test ensures that the wallet details fetched by the client match the
      * expected receiver wallet configuration, including:
-     *
+     * <p>
      * - Wallet ID matches the receiver wallet address.
      * - Public name matches the expected identifier.
      * - Asset code and scale correspond to the predefined currency attributes.
      * - Auth server URL is correctly associated with the wallet.
      * - Resource server URL is properly linked to the wallet.
-     *
+     * <p>
      * The test asserts that the wallet address obtained is not null and that all
      * critical parameters adhere to predefined configurations, verifying the
      * functionality and correctness of receiver wallet retrieval.
@@ -138,8 +138,8 @@ class InterledgerApiClientHttpImpl {
         assertNotNull(wallet);
 
         Assertions.assertEquals(TestHelper.getReceiverWalletAddress(), wallet.getId());
-        Assertions.assertEquals("1fa02483", wallet.getPublicName());
-        Assertions.assertEquals("EUR", wallet.getAssetCode());
+        Assertions.assertEquals("test", wallet.getPublicName());
+        Assertions.assertEquals("USD", wallet.getAssetCode());
         Assertions.assertEquals(2, wallet.getAssetScale());
         Assertions.assertEquals("https://auth.interledger-test.dev/f537937b-7016-481b-b655-9f0d1014822c", wallet.getAuthServer());
         Assertions.assertEquals("https://ilp.interledger-test.dev/f537937b-7016-481b-b655-9f0d1014822c", wallet.getResourceServer());
@@ -148,7 +148,7 @@ class InterledgerApiClientHttpImpl {
     /**
      * Validates the retrieval of the sender wallet information using the given
      * sender wallet address from the configuration.
-     *
+     * <p>
      * This test ensures that the wallet details fetched by the client match the
      * expected sender wallet configuration, including:
      * - Wallet ID matches the sender wallet address.
@@ -156,7 +156,7 @@ class InterledgerApiClientHttpImpl {
      * - Asset code and scale align with the designated currency attributes.
      * - Auth server URL is correctly associated with the wallet.
      * - Resource server URL is correctly linked to the wallet.
-     *
+     * <p>
      * The test asserts that the wallet address obtained is not null, and that all
      * key parameters conform to the predefined values in the test configuration.
      */
@@ -166,7 +166,7 @@ class InterledgerApiClientHttpImpl {
         assertNotNull(wallet);
 
         Assertions.assertEquals(TestHelper.getSenderWalletAddress(), wallet.getId());
-        Assertions.assertEquals("f25232d1", wallet.getPublicName());
+        Assertions.assertEquals("test2", wallet.getPublicName());
         Assertions.assertEquals("EUR", wallet.getAssetCode());
         Assertions.assertEquals(2, wallet.getAssetScale());
         Assertions.assertEquals("https://auth.interledger-test.dev/f537937b-7016-481b-b655-9f0d1014822c", wallet.getAuthServer());
@@ -176,42 +176,42 @@ class InterledgerApiClientHttpImpl {
     /**
      * Automates the entire process of facilitating and finalizing a payment transaction
      * between a sender and receiver wallet in a structured sequence of steps.
-     *
+     * <p>
      * This method covers the following tasks:
-     *
+     * <p>
      * 1. Receiver Wallet Discovery:
-     *    Obtains and validates the receiver's wallet information, including supported currencies,
-     *    authorization server, and resource server endpoints.
-     *
+     * Obtains and validates the receiver's wallet information, including supported currencies,
+     * authorization server, and resource server endpoints.
+     * <p>
      * 2. Receiver Grant Request:
-     *    Creates an access grant for the receiver allowing operations on their wallet to manage incoming payments.
-     *
+     * Creates an access grant for the receiver allowing operations on their wallet to manage incoming payments.
+     * <p>
      * 3. Incoming Payment Creation:
-     *    Defines an incoming payment request with specified amount and currency on the receiver's wallet.
-     *
+     * Defines an incoming payment request with specified amount and currency on the receiver's wallet.
+     * <p>
      * 4. Sender Wallet Discovery:
-     *    Acquires and verifies information about the sender's wallet, including name and supported assets.
-     *
+     * Acquires and verifies information about the sender's wallet, including name and supported assets.
+     * <p>
      * 5. Sender Quote Request Grant:
-     *    Establishes permissions for accessing quotes on the sender's wallet for transaction calculations.
-     *
+     * Establishes permissions for accessing quotes on the sender's wallet for transaction calculations.
+     * <p>
      * 6. Quote Generation:
-     *    Calculates the payment details for the transaction, including sender's cost and receiver's receipt,
-     *    factoring in applicable fees.
-     *
+     * Calculates the payment details for the transaction, including sender's cost and receiver's receipt,
+     * factoring in applicable fees.
+     * <p>
      * 7. Payment Continuation and User Interaction:
-     *    Constructs a redirect URL for user interaction to approve the payment in their wallet.
-     *    Await input from the user with the required parameters from the redirect.
-     *
+     * Constructs a redirect URL for user interaction to approve the payment in their wallet.
+     * Await input from the user with the required parameters from the redirect.
+     * <p>
      * 8. Payment Status Check (Before Finalization):
-     *    Verifies the payment status at this stage before proceeding with the finalization process.
-     *
+     * Verifies the payment status at this stage before proceeding with the finalization process.
+     * <p>
      * 9. Payment Finalization:
-     *    Finalizes the payment transaction upon successful user approval and authorization.
-     *    This step includes the execution of the payment using the finalized grant.
-     *
+     * Finalizes the payment transaction upon successful user approval and authorization.
+     * This step includes the execution of the payment using the finalized grant.
+     * <p>
      * 10. Payment Status Monitoring:
-     *     Monitors the payment until its completion status is confirmed or a timeout is reached.
+     * Monitors the payment until its completion status is confirmed or a timeout is reached.
      *
      */
     @Test
@@ -243,7 +243,7 @@ class InterledgerApiClientHttpImpl {
         var incomingPayment = this.client.payment().incomingPayment(receiverWallet, grantRequest, BigDecimal.valueOf(11.25));
         assertNotNull(incomingPayment);
         log.info("Incoming payment created: " + incomingPayment.getId() + " for " +
-                incomingPayment.getIncomingAmount().getValue() + " " + incomingPayment.getIncomingAmount().getAssetCode());
+            incomingPayment.getIncomingAmount().getValue() + " " + incomingPayment.getIncomingAmount().getAssetCode());
 
         // STEP 2.5: SENDER WALLET DISCOVERY  
         // In a real scenario, the user would enter their wallet address at this point.
@@ -269,17 +269,17 @@ class InterledgerApiClientHttpImpl {
         log.info("********");
         log.info("STEP 4: Generate payment quote");
         var quote = this.client.quote().create(
-                quoteRequest.getAccess().getToken(),
-                senderWallet,
-                incomingPayment,
-                Optional.empty(),
-                Optional.empty()
+            quoteRequest.getAccess().getToken(),
+            senderWallet,
+            incomingPayment,
+            Optional.empty(),
+            Optional.empty()
         );
         assertNotNull(quote);
         log.info("Quote generated - Sender pays: " + quote.getDebitAmount().getValue() + " " +
-                quote.getDebitAmount().getAssetCode() +
-                ", Receiver gets: " + quote.getReceiveAmount().getValue() + " " +
-                quote.getReceiveAmount().getAssetCode()
+            quote.getDebitAmount().getAssetCode() +
+            ", Receiver gets: " + quote.getReceiveAmount().getValue() + " " +
+            quote.getReceiveAmount().getAssetCode()
         );
 
         // STEP 5: PAYMENT CONTINUATION & USER INTERACTION
@@ -294,10 +294,10 @@ class InterledgerApiClientHttpImpl {
         var urlToOpen = "http://localhost:%d?paymentId=1234".formatted(port);
         // Create outing payment from quote:
         var opContinueInteract = this.client.auth().grant().continuation(
-                senderWallet,
-                quote.getDebitAmount(),
-                URI.create(urlToOpen),
-                "test"
+            senderWallet,
+            quote.getDebitAmount(),
+            URI.create(urlToOpen),
+            "test"
         );
 
         log.info("********");
@@ -388,7 +388,7 @@ class InterledgerApiClientHttpImpl {
         if (payment.isCompleted()) {
             log.info("SUCCESS: Payment completed successfully!");
             log.info("Final payment amount: " + payment.getReceivedAmount().getValue() +
-                    " " + payment.getReceivedAmount().getAssetCode());
+                " " + payment.getReceivedAmount().getAssetCode());
         } else {
             log.warn("Quote: Payment did not complete within timeout period");
         }
@@ -424,7 +424,7 @@ class InterledgerApiClientHttpImpl {
         var incomingPayment = this.client.payment().incomingPayment(receiverWallet, ipGrant, amount);
         assertNotNull(incomingPayment);
         log.info("Incoming payment created: " + incomingPayment.getId() + " for " +
-                incomingPayment.getIncomingAmount().getValue() + " " + incomingPayment.getIncomingAmount().getAssetCode());
+            incomingPayment.getIncomingAmount().getValue() + " " + incomingPayment.getIncomingAmount().getAssetCode());
 
         // STEP 2.5: SENDER WALLET DISCOVERY
         // In a real scenario, the user would enter their wallet address at this point.
@@ -447,11 +447,11 @@ class InterledgerApiClientHttpImpl {
         var urlToOpen = "http://localhost:%d?paymentId=1234".formatted(port);
         // Create outing payment from quote:
         var opContinueInteract = this.client.auth().grant().continuation(
-                senderWallet,
-                incomingPayment.getIncomingAmount(),
-                //quote.getDebitAmount(),
-                URI.create(urlToOpen),
-                "test"
+            senderWallet,
+            incomingPayment.getIncomingAmount(),
+            //quote.getDebitAmount(),
+            URI.create(urlToOpen),
+            "test"
         );
 
         log.info("********");
@@ -510,20 +510,20 @@ class InterledgerApiClientHttpImpl {
                 // STEP 6B: Execute the actual payment using the finalized grant
                 // This transfers the funds from sender to receiver
                 var finalizedPayment_1Of2 = this.client.payment().finalizePayment(
-                        finalized,
-                        senderWallet,
-                        payment,
-                        Amount.build(BigDecimal.valueOf(10.00), payment.getIncomingAmount().getAssetCode())
+                    finalized,
+                    senderWallet,
+                    payment,
+                    Amount.build(BigDecimal.valueOf(10.00), payment.getIncomingAmount().getAssetCode())
                 );
                 assertNotNull(finalizedPayment_1Of2);
                 assertFalse(finalizedPayment_1Of2.getFailed());
                 log.info("Payment (1 of 2) executed successfully: " + finalizedPayment_1Of2.getId());
 
                 var finalizedPayment_2Of2 = this.client.payment().finalizePayment(
-                        finalized,
-                        senderWallet,
-                        payment,
-                        Amount.build(BigDecimal.valueOf(2.25), payment.getIncomingAmount().getAssetCode())
+                    finalized,
+                    senderWallet,
+                    payment,
+                    Amount.build(BigDecimal.valueOf(2.25), payment.getIncomingAmount().getAssetCode())
                 );
                 assertNotNull(finalizedPayment_2Of2);
                 assertFalse(finalizedPayment_2Of2.getFailed());
@@ -564,7 +564,7 @@ class InterledgerApiClientHttpImpl {
         if (payment.isCompleted()) {
             log.info("SUCCESS: Payment completed successfully!");
             log.info("Final payment amount: " + payment.getReceivedAmount().getValue() +
-                    " " + payment.getReceivedAmount().getAssetCode());
+                " " + payment.getReceivedAmount().getAssetCode());
         } else {
             log.warn("Incoming: Payment did not complete within timeout period");
         }
