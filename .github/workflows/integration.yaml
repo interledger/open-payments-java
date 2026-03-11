@@ -27,9 +27,9 @@ jobs:
           TEST_WALLET_EMAIL: ${{ secrets.TEST_WALLET_EMAIL }}
           TEST_WALLET_PASSWORD: ${{ secrets.TEST_WALLET_PASSWORD }}
         run: |
-          mkdir -p src/integrationTest/resources
+          mkdir -p open-payments-java/src/integrationTest/resources
           
-          cat <<EOF > src/integrationTest/resources/test-config.properties
+          cat <<EOF > open-payments-java/src/integrationTest/resources/test-config.properties
           client.wallet.address=$CLIENT_WALLET_ADDRESS
           client.private.key=$CLIENT_PRIVATE_KEY
           client.key.id=$CLIENT_KEY_ID
