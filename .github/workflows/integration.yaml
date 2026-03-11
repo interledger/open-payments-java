@@ -19,7 +19,9 @@ jobs:
           cache: gradle
       - name: Set up integration environment
         run: |
-          cat <<EOF > src/test/resources/test-config.properties
+          mkdir -p src/integrationTest/resources
+          
+          cat <<EOF > src/integrationTest/resources/test-config.properties
           client.wallet.address=${{ secrets.CLIENT_WALLET_ADDRESS }}
           client.private.key=${{ secrets.CLIENT_PRIVATE_KEY }}
           client.key.id=${{ secrets.CLIENT_KEY_ID }}
