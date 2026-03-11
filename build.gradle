@@ -32,6 +32,8 @@ ext {
     logbackClassicVersion = '1.5.17'
     lombokVersion = '1.18.42'
     mockitoVersion = '5.14.2'
+    seleniumVersion = '4.41.0'
+    webDriverManagerVersion = '6.1.0'
 }
 
 // Define source sets for integration tests
@@ -138,6 +140,8 @@ dependencies {
     integrationTestRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:${junitVersion}"
     integrationTestImplementation "ch.qos.logback:logback-classic:${logbackClassicVersion}"
     integrationTestImplementation project(':')
+    integrationTestImplementation "org.seleniumhq.selenium:selenium-java:${seleniumVersion}"
+    integrationTestImplementation "io.github.bonigarcia:webdrivermanager:${webDriverManagerVersion}"
 
     // Needed for Gradle 9.0
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'

@@ -1,18 +1,27 @@
 package org.interledger.openpayments;
 
+import io.github.bonigarcia.wdm.WebDriverManager;
 import lombok.extern.slf4j.Slf4j;
 import org.interledger.openpayments.httpclient.OpenPaymentsHttpClient;
 import org.interledger.openpayments.model.common.Amount;
 import org.interledger.openpayments.model.grant.Grant;
 import org.interledger.openpayments.model.key.Ed25519PublicKey;
-import org.interledger.openpayments.util.UtilGlobal;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.openqa.selenium.By;
+import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.WebElement;
+import org.openqa.selenium.chrome.ChromeDriver;
+import org.openqa.selenium.chrome.ChromeOptions;
+import org.openqa.selenium.support.ui.ExpectedConditions;
+import org.openqa.selenium.support.ui.WebDriverWait;
 
-import javax.swing.*;
 import java.math.BigDecimal;
 import java.net.URI;
+import java.time.Duration;
+import java.util.Arrays;
+import java.util.Objects;
 import java.util.Optional;
 
 import static java.lang.Thread.sleep;
@@ -166,8 +175,8 @@ class InterledgerApiClientHttpImpl {
         assertNotNull(wallet);
 
         Assertions.assertEquals(TestHelper.getSenderWalletAddress(), wallet.getId());
-        Assertions.assertEquals("test2", wallet.getPublicName());
-        Assertions.assertEquals("EUR", wallet.getAssetCode());
+        Assertions.assertEquals("test", wallet.getPublicName());
+        Assertions.assertEquals("USD", wallet.getAssetCode());
         Assertions.assertEquals(2, wallet.getAssetScale());
         Assertions.assertEquals("https://auth.interledger-test.dev/f537937b-7016-481b-b655-9f0d1014822c", wallet.getAuthServer());
         Assertions.assertEquals("https://ilp.interledger-test.dev/f537937b-7016-481b-b655-9f0d1014822c", wallet.getResourceServer());
@@ -300,34 +309,7 @@ class InterledgerApiClientHttpImpl {
             "test"
         );
 
-        log.info("********");
-        log.info("USER INTERACTION REQUIRED:");
-        log.info(String.format("%n-> CLICK ON LINK!!!: %n%s%n-----%n", opContinueInteract.getInteract().getRedirect()));
-        log.info("After clicking, copy the 'interact_ref' parameter from the return URL");
-        log.info("********");
-
-        int waitLocalCount = 0;
-        while (waitLocalCount < 60) {
-            if (!UtilGlobal.isNullOrEmpty(this.httpServer.getLastRequestLine())) break;
-
-            waitLocalCount++;
-            sleep(1000);
-        }
-
-        var lastLine = this.httpServer.getLastRequestLine();
-        final String interactReference;
-        // The redirect URL will contain query parameters when the user returns:
-
-        // MANUAL STEP: User clicks redirect link and authorizes payment in their wallet
-        // The wallet redirects back with an interact_ref parameter that we need to capture
-        if (UtilGlobal.isNullOrEmpty(lastLine)) {
-            interactReference = JOptionPane.showInputDialog("Enter 'Interact Reference:' query parameter from return URL:");
-            log.info("You entered: " + interactReference);
-        } else {
-            //GET /?paymentId=1234&hash=1uI013KNT6iU7Qtgd8U1G1E4d3bMAiCI85kgllUwXYQ=&interact_ref=003064ec-5b08-4acf-90ec-d8e4779fc7ef HTTP/1.1
-            interactReference = lastLine.substring(lastLine.indexOf("interact_ref=") + 13, lastLine.indexOf("interact_ref=") + 13 + 36);
-        }
-        this.httpServer.shutdown();
+        final String interactReference = performInteractionAndContinue(opContinueInteract.getInteract().getRedirect().toString());
 
         // STEP 5.5: CHECK PAYMENT STATUS BEFORE FINALIZATION
         // Verify the payment state before attempting to finalize it
@@ -440,7 +422,7 @@ class InterledgerApiClientHttpImpl {
         // This implements the interactive authorization flow required by Open Payments.
         log.info("********");
         log.info("STEP 3: Create user interaction redirect");
-        int port = 8888;
+        int port = 8889;
         this.httpServer = new SimpleHttpServer(port);
         this.httpServer.start();
 
@@ -454,39 +436,12 @@ class InterledgerApiClientHttpImpl {
             "test"
         );
 
-        log.info("********");
-        log.info("USER INTERACTION REQUIRED:");
-        log.info(String.format("%n-> CLICK ON LINK!!!: %n%s%n-----%n", opContinueInteract.getInteract().getRedirect()));
-        log.info("After clicking, copy the 'interact_ref' parameter from the return URL");
-        log.info("********");
+        String interactReference = performInteractionAndContinue(opContinueInteract.getInteract().getRedirect().toString());
 
-        int waitLocalCount = 0;
-        while (waitLocalCount < 60) {
-            if (!UtilGlobal.isNullOrEmpty(this.httpServer.getLastRequestLine())) break;
-
-            waitLocalCount++;
-            sleep(1000);
-        }
-
-        var lastLine = this.httpServer.getLastRequestLine();
-        final String interactReference;
-        // The redirect URL will contain query parameters when the user returns:
-
-        // MANUAL STEP: User clicks redirect link and authorizes payment in their wallet
-        // The wallet redirects back with an interact_ref parameter that we need to capture
-        if (UtilGlobal.isNullOrEmpty(lastLine)) {
-            interactReference = JOptionPane.showInputDialog("Enter 'Interact Reference:' query parameter from return URL:");
-            log.info("You entered: " + interactReference);
-        } else {
-            //GET /?paymentId=1234&hash=1uI013KNT6iU7Qtgd8U1G1E4d3bMAiCI85kgllUwXYQ=&interact_ref=003064ec-5b08-4acf-90ec-d8e4779fc7ef HTTP/1.1
-            interactReference = lastLine.substring(lastLine.indexOf("interact_ref=") + 13, lastLine.indexOf("interact_ref=") + 13 + 36);
-        }
-        this.httpServer.shutdown();
-
-        // STEP 4.5: CHECK PAYMENT STATUS BEFORE FINALIZATION
+        // STEP 4: CHECK PAYMENT STATUS BEFORE FINALIZATION
         // Verify the payment state before attempting to finalize it
         log.info("********");
-        log.info("STEP 4.5: Check incoming payment status before finalization");
+        log.info("STEP 4: Check incoming payment status before finalization");
         var payment = this.client.payment().getIncomingPayment(incomingPayment.getId(), ipGrant);
         assertNotNull(payment);
         assertFalse(payment.isCompleted()); // Should not be completed yet
@@ -523,7 +478,7 @@ class InterledgerApiClientHttpImpl {
                     finalized,
                     senderWallet,
                     payment,
-                    Amount.build(BigDecimal.valueOf(2.25), payment.getIncomingAmount().getAssetCode())
+                    Amount.build(BigDecimal.valueOf(2.25), senderWallet.getAssetCode())
                 );
                 assertNotNull(finalizedPayment_2Of2);
                 assertFalse(finalizedPayment_2Of2.getFailed());
@@ -567,6 +522,82 @@ class InterledgerApiClientHttpImpl {
                 " " + payment.getReceivedAmount().getAssetCode());
         } else {
             log.warn("Incoming: Payment did not complete within timeout period");
+        }
+    }
+
+    /**
+     * Automates the User Interaction phase of the GNAP / Open Payments grant flow.
+     * This method performs the following steps:
+     * <p>1. Launches a headless Chrome instance to navigate to the wallet's interaction URL. </p>
+     * <p>2. Detects if a login is required and authenticates using test credentials.</p>
+     * <p>3. Waits for and clicks the "Accept/Consent" button to authorize the payment.</p>
+     * <p>4. Captures the 'interact_ref' from the resulting redirect URL query parameters.</p>
+     *
+     * @param redirect The interaction URL provided by the AS (Authorization Server).
+     * @return The 'interact_ref' string required to finalize the grant.
+     * @throws RuntimeException If the login fails, the consent button is missing,
+     *                          or the interact_ref is not captured within the timeout.
+     */
+    public String performInteractionAndContinue(
+        String redirect
+    ) {
+        WebDriverManager.chromedriver().setup();
+        ChromeOptions options = new ChromeOptions();
+        options.addArguments("--headless=new");
+
+        WebDriver driver = new ChromeDriver(options);
+        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
+
+        try {
+            driver.get(redirect);
+            if (Objects.requireNonNull(driver.getCurrentUrl()).contains("/auth/login")) {
+                String email = TestConfiguration.getTestWalletEmail();
+                String password = TestConfiguration.getTestWalletPassword();
+
+                WebElement emailInput = wait.until(ExpectedConditions.elementToBeClickable(
+                    By.cssSelector("input[type='email'], input[name='email']")));
+                emailInput.clear();
+                emailInput.sendKeys(email);
+
+                WebElement passInput = driver.findElement(
+                    By.cssSelector("input[type='password'], input[name='password']"));
+                passInput.clear();
+                passInput.sendKeys(password);
+
+                WebElement submitBtn = driver.findElement(
+                    By.cssSelector("button[type='submit'], button[aria-label='login']"));
+                submitBtn.click();
+
+                wait.until(ExpectedConditions.textToBePresentInElementLocated(By.tagName("body"), "Accept"));
+            }
+
+            WebElement btn = wait.until(ExpectedConditions.elementToBeClickable(
+                By.cssSelector("button[aria-label='accept']")
+            ));
+            btn.click();
+
+            String interactRef = null;
+            for (int i = 0; i < 100; i++) {
+                String query = URI.create(driver.getCurrentUrl()).getQuery();
+                if (query != null && query.contains("interact_ref=")) {
+                    interactRef = Arrays.stream(query.split("&"))
+                        .filter(param -> param.startsWith("interact_ref="))
+                        .map(param -> param.split("=")[1])
+                        .findFirst()
+                        .orElse(null);
+                    break;
+                }
+                Thread.sleep(100);
+            }
+
+            if (interactRef == null) throw new RuntimeException("interact_ref not found in URL");
+
+            return interactRef;
+
+        } catch (Exception e) {
+            throw new RuntimeException("Failed during browser interaction: " + e.getMessage(), e);
+        } finally {
+            driver.quit();
         }
     }
 }

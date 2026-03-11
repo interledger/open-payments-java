@@ -25,6 +25,8 @@ jobs:
           client.key.id=${{ secrets.CLIENT_KEY_ID }}
           sender.wallet.address=${{ secrets.SENDER_WALLET_ADDRESS }}
           receiver.wallet.address=${{ secrets.RECEIVER_WALLET_ADDRESS }}
+          test.wallet.email=${{ secrets.TEST_WALLET_EMAIL }}
+          test.wallet.password=${{ secrets.TEST_WALLET_PASSWORD }}
           EOF
       - name: Run integration tests
         run: ./gradlew integrationTest
