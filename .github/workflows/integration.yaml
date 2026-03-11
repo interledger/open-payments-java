@@ -38,5 +38,9 @@ jobs:
           test.wallet.email=$TEST_WALLET_EMAIL
           test.wallet.password=$TEST_WALLET_PASSWORD
           EOF
+          
+          echo "Checking file: src/integrationTest/resources/test-config.properties"
+          ls -l src/integrationTest/resources/test-config.properties
+          wc -l src/integrationTest/resources/test-config.properties
       - name: Run integration tests
         run: ./gradlew clean integrationTest --no-build-cache --info
