@@ -41,9 +41,10 @@ sourceSets {
     integrationTest {
         java.srcDir 'src/integrationTest/java'
         resources.srcDir 'src/integrationTest/resources'
-        // Include classes from 'main' and 'test' source sets
-        compileClasspath = output + sourceSets.main.output + sourceSets.test.output
-        runtimeClasspath = output + sourceSets.main.output + sourceSets.test.output
+        compileClasspath += sourceSets.main.output + sourceSets.test.output
+        runtimeClasspath = sourceSets.integrationTest.output +
+                sourceSets.main.output +
+                sourceSets.test.output
     }
 }
 
