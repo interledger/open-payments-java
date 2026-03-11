@@ -27,10 +27,10 @@ jobs:
           TEST_WALLET_EMAIL: ${{ secrets.TEST_WALLET_EMAIL }}
           TEST_WALLET_PASSWORD: ${{ secrets.TEST_WALLET_PASSWORD }}
         run: |
-          mkdir -p open-payments-java/src/integrationTest/resources
+          mkdir -p ./src/integrationTest/resources
           echo "Secret length for CLIENT_WALLET_ADDRESS: ${#CLIENT_WALLET_ADDRESS}"
           
-          cat <<EOF > open-payments-java/src/integrationTest/resources/test-config.properties
+          cat <<EOF > ./src/integrationTest/resources/test-config.properties
           client.wallet.address=$CLIENT_WALLET_ADDRESS
           client.private.key=$CLIENT_PRIVATE_KEY
           client.key.id=$CLIENT_KEY_ID
@@ -40,7 +40,7 @@ jobs:
           test.wallet.password=$TEST_WALLET_PASSWORD
           EOF
           
-          echo "Properties file created in src/integrationTest/resources/"
-          ls -l src/integrationTest/resources/test-config.properties
+          echo "Properties file created in ./src/integrationTest/resources/"
+          ls -l ./src/integrationTest/resources/test-config.properties
       - name: Run integration tests
         run: ./gradlew clean integrationTest --info
