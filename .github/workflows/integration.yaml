@@ -42,4 +42,4 @@ jobs:
           echo "Properties file created in src/integrationTest/resources/"
           ls -l src/integrationTest/resources/test-config.properties
       - name: Run integration tests
-        run: ./gradlew clean integrationTest --no-build-cache --info
+        run: ./gradlew clean integrationTest
