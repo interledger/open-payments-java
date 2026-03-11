@@ -18,17 +18,25 @@ jobs:
           distribution: 'temurin'
           cache: gradle
       - name: Set up integration environment
+        env:
+          CLIENT_WALLET_ADDRESS: ${{ secrets.CLIENT_WALLET_ADDRESS }}
+          CLIENT_PRIVATE_KEY: ${{ secrets.CLIENT_PRIVATE_KEY }}
+          CLIENT_KEY_ID: ${{ secrets.CLIENT_KEY_ID }}
+          SENDER_WALLET_ADDRESS: ${{ secrets.SENDER_WALLET_ADDRESS }}
+          RECEIVER_WALLET_ADDRESS: ${{ secrets.RECEIVER_WALLET_ADDRESS }}
+          TEST_WALLET_EMAIL: ${{ secrets.TEST_WALLET_EMAIL }}
+          TEST_WALLET_PASSWORD: ${{ secrets.TEST_WALLET_PASSWORD }}
         run: |
           mkdir -p src/integrationTest/resources
           
           cat <<EOF > src/integrationTest/resources/test-config.properties
-          client.wallet.address=${{ secrets.CLIENT_WALLET_ADDRESS }}
-          client.private.key=${{ secrets.CLIENT_PRIVATE_KEY }}
-          client.key.id=${{ secrets.CLIENT_KEY_ID }}
-          sender.wallet.address=${{ secrets.SENDER_WALLET_ADDRESS }}
-          receiver.wallet.address=${{ secrets.RECEIVER_WALLET_ADDRESS }}
-          test.wallet.email=${{ secrets.TEST_WALLET_EMAIL }}
-          test.wallet.password=${{ secrets.TEST_WALLET_PASSWORD }}
+          client.wallet.address=$CLIENT_WALLET_ADDRESS
+          client.private.key=$CLIENT_PRIVATE_KEY
+          client.key.id=$CLIENT_KEY_ID
+          sender.wallet.address=$SENDER_WALLET_ADDRESS
+          receiver.wallet.address=$RECEIVER_WALLET_ADDRESS
+          test.wallet.email=$TEST_WALLET_EMAIL
+          test.wallet.password=$TEST_WALLET_PASSWORD
           EOF
       - name: Run integration tests
         run: ./gradlew clean integrationTest --no-build-cache --info
