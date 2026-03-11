@@ -31,4 +31,4 @@ jobs:
           test.wallet.password=${{ secrets.TEST_WALLET_PASSWORD }}
           EOF
       - name: Run integration tests
-        run: ./gradlew clean integrationTest --no-build-cache
+        run: ./gradlew clean integrationTest --no-build-cache --info
