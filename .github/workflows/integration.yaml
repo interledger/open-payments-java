@@ -1,6 +1,8 @@
 name: Integration Test
 
 on:
+  push:
+    branches: [ main ]
   pull_request:
     branches: [ main ]
 
@@ -27,10 +29,14 @@ jobs:
           TEST_WALLET_EMAIL: ${{ secrets.TEST_WALLET_EMAIL }}
           TEST_WALLET_PASSWORD: ${{ secrets.TEST_WALLET_PASSWORD }}
         run: |
-          mkdir -p ./src/integrationTest/resources
-          echo "Secret length for CLIENT_WALLET_ADDRESS: ${#CLIENT_WALLET_ADDRESS}"
+          mkdir -p src/integrationTest/resources
           
-          cat <<EOF > ./src/integrationTest/resources/test-config.properties
+          if [ -z "$CLIENT_PRIVATE_KEY" ]; then
+            echo "[integration] Secrets not found. Integration tests will be skipped."
+            exit 1
+          fi
+          
+          cat <<'EOF' > src/integrationTest/resources/test-config.properties
           client.wallet.address=$CLIENT_WALLET_ADDRESS
           client.private.key=$CLIENT_PRIVATE_KEY
           client.key.id=$CLIENT_KEY_ID
@@ -39,8 +45,5 @@ jobs:
           test.wallet.email=$TEST_WALLET_EMAIL
           test.wallet.password=$TEST_WALLET_PASSWORD
           EOF
-          
-          echo "Properties file created in ./src/integrationTest/resources/"
-          ls -l ./src/integrationTest/resources/test-config.properties
       - name: Run integration tests
         run: ./gradlew clean integrationTest --info

@@ -71,7 +71,7 @@ tasks.register('integrationTest', Test) {
 
     // Optional: Enable logging for debugging purposes
     testLogging {
-        events 'PASSED', 'FAILED', 'SKIPPED'
+        events = ['PASSED', 'FAILED', 'SKIPPED']
         showExceptions = true
         exceptionFormat = 'full'
         showCauses = true
