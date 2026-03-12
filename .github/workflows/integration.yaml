@@ -2,8 +2,7 @@ name: Integration Test
 
 on:
   pull_request:
-    branches:
-      - "**"
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
@@ -45,6 +44,6 @@ jobs:
           test.wallet.password=$TEST_WALLET_PASSWORD
           EOF
           
-          printf "client.private.key=%b" "$CLIENT_PRIVATE_KEY" >> src/integrationTest/resources/test-config.properties
+          printf 'client.private.key=%s\n' "$CLIENT_PRIVATE_KEY" >> src/integrationTest/resources/test-config.properties
       - name: Run integration tests
         run: ./gradlew clean integrationTest --no-parallel --max-workers=1
