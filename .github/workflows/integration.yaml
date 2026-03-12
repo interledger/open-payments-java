@@ -36,6 +36,7 @@ jobs:
           mkdir -p src/integrationTest/resources
           
           cat > src/integrationTest/resources/test-config.properties <<EOF
+          client.private.key=$CLIENT_PRIVATE_KEY
           client.wallet.address=$CLIENT_WALLET_ADDRESS
           client.key.id=$CLIENT_KEY_ID
           sender.wallet.address=$SENDER_WALLET_ADDRESS
@@ -43,8 +44,5 @@ jobs:
           test.wallet.email=$TEST_WALLET_EMAIL
           test.wallet.password=$TEST_WALLET_PASSWORD
           EOF
-          
-          echo "client.private.key=$(echo "$CLIENT_PRIVATE_KEY" | tr -d '\r' | tr '\n' '\\n')" >> src/integrationTest/resources/test-config.properties
-
       - name: Run integration tests
         run: ./gradlew clean integrationTest --no-parallel --max-workers=1
