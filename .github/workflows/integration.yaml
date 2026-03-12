@@ -28,7 +28,6 @@ jobs:
           TEST_WALLET_EMAIL: ${{ secrets.TEST_WALLET_EMAIL }}
           TEST_WALLET_PASSWORD: ${{ secrets.TEST_WALLET_PASSWORD }}
         run: |
-          mkdir -p src/integrationTest/resources
           
           if [ -z "${CLIENT_WALLET_ADDRESS:-}" ]; then
             echo "[integration] Secrets not found. Integration tests will be skipped."
@@ -36,7 +35,6 @@ jobs:
           fi
           
           cat > src/integrationTest/resources/test-config.properties <<EOF
-          client.private.key=$CLIENT_PRIVATE_KEY
           client.wallet.address=$CLIENT_WALLET_ADDRESS
           client.key.id=$CLIENT_KEY_ID
           sender.wallet.address=$SENDER_WALLET_ADDRESS
@@ -44,6 +42,13 @@ jobs:
           test.wallet.email=$TEST_WALLET_EMAIL
           test.wallet.password=$TEST_WALLET_PASSWORD
           EOF
+          
+          sed -i 's/^ *//' src/integrationTest/resources/test-config.properties
+          if echo "$CLIENT_PRIVATE_KEY" | grep -q 'BEGIN PRIVATE KEY'; then
+            printf '%s' "$CLIENT_PRIVATE_KEY" | tr -d '\r' > src/integrationTest/resources/test-config.properties
+          else
+            printf '%s' "$CLIENT_PRIVATE_KEY" | base64 -d > src/integrationTest/resources/test-config.properties
+          fi
 
       - name: Run integration tests
         run: ./gradlew clean integrationTest --no-parallel --max-workers=1
