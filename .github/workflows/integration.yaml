@@ -28,7 +28,7 @@ jobs:
           TEST_WALLET_EMAIL: ${{ secrets.TEST_WALLET_EMAIL }}
           TEST_WALLET_PASSWORD: ${{ secrets.TEST_WALLET_PASSWORD }}
         run: |
-          if [ -z "${CLIENT_WALLET_ADDRESS:-}" ]; then
+          if [ -z "${CLIENT_PRIVATE_KEY:-}" ]; then
             echo "[integration] Secrets not found. Integration tests will be skipped."
             exit 1
           fi
