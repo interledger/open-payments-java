@@ -36,6 +36,7 @@ jobs:
           fi
           
           cat <<EOF > src/integrationTest/resources/test-config.properties
+          client.private.key=$CLIENT_PRIVATE_KEY
           client.wallet.address=$CLIENT_WALLET_ADDRESS
           client.key.id=$CLIENT_KEY_ID
           sender.wallet.address=$SENDER_WALLET_ADDRESS
@@ -43,7 +44,6 @@ jobs:
           test.wallet.email=$TEST_WALLET_EMAIL
           test.wallet.password=$TEST_WALLET_PASSWORD
           EOF
-          
-          printf 'client.private.key=%s\n' "$CLIENT_PRIVATE_KEY" >> src/integrationTest/resources/test-config.properties
+
       - name: Run integration tests
         run: ./gradlew clean integrationTest --no-parallel --max-workers=1
