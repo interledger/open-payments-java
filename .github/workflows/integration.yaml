@@ -35,7 +35,7 @@ jobs:
             exit 1
           fi
           
-          cat <<EOF > src/integrationTest/resources/test-config.properties
+          cat > src/integrationTest/resources/test-config.properties <<EOF
           client.private.key=$CLIENT_PRIVATE_KEY
           client.wallet.address=$CLIENT_WALLET_ADDRESS
           client.key.id=$CLIENT_KEY_ID
