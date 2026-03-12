@@ -28,11 +28,12 @@ jobs:
           TEST_WALLET_EMAIL: ${{ secrets.TEST_WALLET_EMAIL }}
           TEST_WALLET_PASSWORD: ${{ secrets.TEST_WALLET_PASSWORD }}
         run: |
-          
           if [ -z "${CLIENT_WALLET_ADDRESS:-}" ]; then
             echo "[integration] Secrets not found. Integration tests will be skipped."
             exit 1
           fi
+          
+          mkdir -p src/integrationTest/resources
           
           cat > src/integrationTest/resources/test-config.properties <<EOF
           client.wallet.address=$CLIENT_WALLET_ADDRESS
@@ -45,9 +46,9 @@ jobs:
           
           sed -i 's/^ *//' src/integrationTest/resources/test-config.properties
           if echo "$CLIENT_PRIVATE_KEY" | grep -q 'BEGIN PRIVATE KEY'; then
-            printf '%s' "$CLIENT_PRIVATE_KEY" | tr -d '\r' > src/integrationTest/resources/test-config.properties
+            printf '%s' "$CLIENT_PRIVATE_KEY" | tr -d '\r' >> src/integrationTest/resources/test-config.properties
           else
-            printf '%s' "$CLIENT_PRIVATE_KEY" | base64 -d > src/integrationTest/resources/test-config.properties
+            printf '%s' "$CLIENT_PRIVATE_KEY" | base64 -d >> src/integrationTest/resources/test-config.properties
           fi
 
       - name: Run integration tests
