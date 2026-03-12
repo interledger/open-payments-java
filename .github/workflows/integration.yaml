@@ -44,12 +44,7 @@ jobs:
           test.wallet.password=$TEST_WALLET_PASSWORD
           EOF
           
-          sed -i 's/^ *//' src/integrationTest/resources/test-config.properties
-          if echo "$CLIENT_PRIVATE_KEY" | grep -q 'BEGIN PRIVATE KEY'; then
-            printf '%s' "$CLIENT_PRIVATE_KEY" | tr -d '\r' >> src/integrationTest/resources/test-config.properties
-          else
-            printf '%s' "$CLIENT_PRIVATE_KEY" | base64 -d >> src/integrationTest/resources/test-config.properties
-          fi
+          echo "client.private.key=$(echo "$CLIENT_PRIVATE_KEY" | tr -d '\r' | tr '\n' '\\n')" >> src/integrationTest/resources/test-config.properties
 
       - name: Run integration tests
         run: ./gradlew clean integrationTest --no-parallel --max-workers=1
