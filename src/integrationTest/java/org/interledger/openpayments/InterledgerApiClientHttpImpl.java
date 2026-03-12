@@ -541,9 +541,13 @@ class InterledgerApiClientHttpImpl {
     public String performInteractionAndContinue(
         String redirect
     ) {
-        WebDriverManager.chromedriver().setup();
         ChromeOptions options = new ChromeOptions();
+
+        WebDriverManager.chromedriver().setup();
         options.addArguments("--headless=new");
+        options.addArguments("--no-sandbox");
+        options.addArguments("--disable-dev-shm-usage");
+        options.addArguments("--remote-allow-origins=*");
 
         WebDriver driver = new ChromeDriver(options);
         WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
@@ -559,13 +563,13 @@ class InterledgerApiClientHttpImpl {
                 emailInput.clear();
                 emailInput.sendKeys(email);
 
-                WebElement passInput = driver.findElement(
-                    By.cssSelector("input[type='password'], input[name='password']"));
+                WebElement passInput = wait.until(ExpectedConditions.elementToBeClickable(
+                    By.cssSelector("input[type='password'], input[name='password']")));
                 passInput.clear();
                 passInput.sendKeys(password);
 
-                WebElement submitBtn = driver.findElement(
-                    By.cssSelector("button[type='submit'], button[aria-label='login']"));
+                WebElement submitBtn = wait.until(ExpectedConditions.elementToBeClickable(
+                    By.cssSelector("button[type='submit'], button[aria-label='login']")));
                 submitBtn.click();
 
                 wait.until(ExpectedConditions.textToBePresentInElementLocated(By.tagName("body"), "Accept"));

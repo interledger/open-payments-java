@@ -1,4 +1,4 @@
-name: Integration Test
+name: Integration Test and Version Bump
 
 on:
   push:
@@ -35,14 +35,27 @@ jobs:
             exit 1
           fi
           
-          cat <<'EOF' > src/integrationTest/resources/test-config.properties
+          cat <<EOF > src/integrationTest/resources/test-config.properties
           client.wallet.address=$CLIENT_WALLET_ADDRESS
-          client.private.key=$CLIENT_PRIVATE_KEY
           client.key.id=$CLIENT_KEY_ID
           sender.wallet.address=$SENDER_WALLET_ADDRESS
           receiver.wallet.address=$RECEIVER_WALLET_ADDRESS
           test.wallet.email=$TEST_WALLET_EMAIL
           test.wallet.password=$TEST_WALLET_PASSWORD
           EOF
+          
+          printf "client.private.key=%b" "$CLIENT_PRIVATE_KEY" >> src/integrationTest/resources/test-config.properties
       - name: Run integration tests
-        run: ./gradlew clean integrationTest --info
+        run: ./gradlew clean integrationTest --info --no-parallel --max-workers=1
+#  version_bump:
+#    name: Increase version
+#    runs-on: ubuntu-latest
+#    steps:
+#      - name: Checkout
+#        uses: actions/checkout@v4
+#      - name: Set up JDK 21
+#        uses: actions/setup-java@v4
+#        with:
+#          java-version: '21'
+#          distribution: 'temurin'
+#          cache: gradle
