@@ -1,9 +1,9 @@
 name: Integration Test and Version Bump
 
 on:
-  push:
+  pull_request:
     branches:
-      - main
+      - "**"
   workflow_dispatch:
 jobs:
   integration:
