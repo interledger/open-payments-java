@@ -24,7 +24,7 @@ jobs:
           distribution: 'temurin'
           cache: gradle
       - name: Set up integration environment
-        env:
+        with:
           CLIENT_WALLET_ADDRESS: ${{ secrets.CLIENT_WALLET_ADDRESS }}
           CLIENT_PRIVATE_KEY: ${{ secrets.CLIENT_PRIVATE_KEY }}
           CLIENT_KEY_ID: ${{ secrets.CLIENT_KEY_ID }}
