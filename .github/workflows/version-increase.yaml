@@ -1,0 +1,45 @@
+name: Increment Snapshot Version
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - 'gradle.properties'
+
+jobs:
+  bump-and-tag:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Bump Version and Push Tag
+        run: |
+          VERSION_LINE=$(grep "release.version=" gradle.properties)
+          CURRENT_VERSION=$(echo $VERSION_LINE | cut -d'=' -f2)
+          
+          BASE_VERSION=${CURRENT_VERSION%-SNAPSHOT}
+          
+          RELEASE_TAG="v$BASE_VERSION"
+          echo "Target Release Tag: $RELEASE_TAG"
+
+          NEXT_VERSION=$(echo $BASE_VERSION | awk -F. '{$NF = $NF + 1;} 1' OFS=. | sed 's/$/-SNAPSHOT/')
+          echo "Next Snapshot: $NEXT_VERSION"
+
+          sed -i "s/release.version=.*/release.version=$NEXT_VERSION/" gradle.properties
+
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add gradle.properties
+          git commit -m "chore: bump version to $NEXT_VERSION [skip ci]"
+          
+          git tag -a "$RELEASE_TAG" -m "Release $RELEASE_TAG"
+          
+          git push origin main --tags

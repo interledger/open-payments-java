@@ -1,9 +1,9 @@
-name: Integration Test and Version Bump
+name: Integration Test
 
 on:
-  pull_request:
+  push:
     branches:
-      - "**"
+      - main
   workflow_dispatch:
 jobs:
   integration:
@@ -46,16 +46,4 @@ jobs:
           
           printf "client.private.key=%b" "$CLIENT_PRIVATE_KEY" >> src/integrationTest/resources/test-config.properties
       - name: Run integration tests
-        run: ./gradlew clean integrationTest --info --no-parallel --max-workers=1
-#  version_bump:
-#    name: Increase version
-#    runs-on: ubuntu-latest
-#    steps:
-#      - name: Checkout
-#        uses: actions/checkout@v4
-#      - name: Set up JDK 21
-#        uses: actions/setup-java@v4
-#        with:
-#          java-version: '21'
-#          distribution: 'temurin'
-#          cache: gradle
+        run: ./gradlew clean integrationTest --no-parallel --max-workers=1
