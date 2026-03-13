@@ -45,4 +45,4 @@ jobs:
           test.wallet.password=$TEST_WALLET_PASSWORD
           EOF
       - name: Run integration tests
-        run: ./gradlew clean integrationTest --no-parallel --max-workers=1
+        run: ./gradlew clean integrationTest
