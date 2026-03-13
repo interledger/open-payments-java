@@ -249,7 +249,7 @@ class InterledgerApiClientHttpImpl {
         // This establishes the payment destination and amount that the sender will pay to.
         log.info("********");
         log.info("STEP 2: Create incoming payment request");
-        var incomingPayment = this.client.payment().incomingPayment(receiverWallet, grantRequest, BigDecimal.valueOf(11.25));
+        var incomingPayment = this.client.payment().createIncoming(receiverWallet, grantRequest, BigDecimal.valueOf(11.25));
         assertNotNull(incomingPayment);
         log.info("Incoming payment created: " + incomingPayment.getId() + " for " +
             incomingPayment.getIncomingAmount().getValue() + " " + incomingPayment.getIncomingAmount().getAssetCode());
@@ -315,7 +315,7 @@ class InterledgerApiClientHttpImpl {
         // Verify the payment state before attempting to finalize it
         log.info("********");
         log.info("STEP 5.5: Check incoming payment status before finalization");
-        var payment = this.client.payment().getIncomingPayment(incomingPayment.getId(), grantRequest);
+        var payment = this.client.payment().getIncoming(incomingPayment.getId(), grantRequest);
         assertNotNull(payment);
         assertFalse(payment.isCompleted()); // Should not be completed yet
         log.info("Payment status before finalization: completed=" + payment.isCompleted());
@@ -336,10 +336,10 @@ class InterledgerApiClientHttpImpl {
             if (finalized.getAccess().getToken() != null) {
                 // STEP 6B: Execute the actual payment using the finalized grant
                 // This transfers the funds from sender to receiver
-                var finalizedPayment = this.client.payment().finalizePayment(finalized, senderWallet, quote);
-                assertNotNull(finalizedPayment);
-                assertFalse(finalizedPayment.getFailed());
-                log.info("Payment executed successfully: " + finalizedPayment.getId());
+                var outPayment = this.client.payment().createOutgoing(finalized, senderWallet, quote);
+                assertNotNull(outPayment);
+                assertFalse(outPayment.getFailed());
+                log.info("Payment executed successfully: " + outPayment.getId());
             } else {
                 log.info("********");
                 log.error("Cannot execute payment - grant finalization failed: " + opContinueInteract.getInteract().getRedirect());
@@ -357,7 +357,7 @@ class InterledgerApiClientHttpImpl {
         while (!payment.isCompleted() && count < 10) { // wait at least 10s ...
             count++;
 
-            payment = this.client.payment().getIncomingPayment(incomingPayment.getId(), grantRequest);
+            payment = this.client.payment().getIncoming(incomingPayment.getId(), grantRequest);
             assertNotNull(payment);
             log.info("********");
             log.info("Payment status check #" + count + " - Completed: " + payment.isCompleted());
@@ -403,7 +403,7 @@ class InterledgerApiClientHttpImpl {
         log.info("********");
         log.info("STEP 2: Create incoming payment request");
         var amount = BigDecimal.valueOf(12.25);
-        var incomingPayment = this.client.payment().incomingPayment(receiverWallet, ipGrant, amount);
+        var incomingPayment = this.client.payment().createIncoming(receiverWallet, ipGrant, amount);
         assertNotNull(incomingPayment);
         log.info("Incoming payment created: " + incomingPayment.getId() + " for " +
             incomingPayment.getIncomingAmount().getValue() + " " + incomingPayment.getIncomingAmount().getAssetCode());
@@ -441,8 +441,13 @@ class InterledgerApiClientHttpImpl {
         // STEP 4: CHECK PAYMENT STATUS BEFORE FINALIZATION
         // Verify the payment state before attempting to finalize it
         log.info("********");
+<<<<<<< HEAD
         log.info("STEP 4: Check incoming payment status before finalization");
         var payment = this.client.payment().getIncomingPayment(incomingPayment.getId(), ipGrant);
+=======
+        log.info("STEP 4.5: Check incoming payment status before finalization");
+        var payment = this.client.payment().getIncoming(incomingPayment.getId(), ipGrant);
+>>>>>>> main
         assertNotNull(payment);
         assertFalse(payment.isCompleted()); // Should not be completed yet
         log.info("Payment status before finalization: completed=" + payment.isCompleted());
@@ -464,25 +469,41 @@ class InterledgerApiClientHttpImpl {
                 // 2x incoming payments.
                 // STEP 6B: Execute the actual payment using the finalized grant
                 // This transfers the funds from sender to receiver
+<<<<<<< HEAD
                 var finalizedPayment_1Of2 = this.client.payment().finalizePayment(
                     finalized,
                     senderWallet,
                     payment,
                     Amount.build(BigDecimal.valueOf(10.00), payment.getIncomingAmount().getAssetCode())
+=======
+                var createdPayment_1Of2 = this.client.payment().createOutgoing(
+                        finalized,
+                        senderWallet,
+                        payment,
+                        Amount.build(BigDecimal.valueOf(10.00), payment.getIncomingAmount().getAssetCode())
+>>>>>>> main
                 );
-                assertNotNull(finalizedPayment_1Of2);
-                assertFalse(finalizedPayment_1Of2.getFailed());
-                log.info("Payment (1 of 2) executed successfully: " + finalizedPayment_1Of2.getId());
+                assertNotNull(createdPayment_1Of2);
+                assertFalse(createdPayment_1Of2.getFailed());
+                log.info("Payment (1 of 2) executed successfully: " + createdPayment_1Of2.getId());
 
+<<<<<<< HEAD
                 var finalizedPayment_2Of2 = this.client.payment().finalizePayment(
                     finalized,
                     senderWallet,
                     payment,
                     Amount.build(BigDecimal.valueOf(2.25), senderWallet.getAssetCode())
+=======
+                var createdPayment_2Of2 = this.client.payment().createOutgoing(
+                        finalized,
+                        senderWallet,
+                        payment,
+                        Amount.build(BigDecimal.valueOf(2.25), payment.getIncomingAmount().getAssetCode())
+>>>>>>> main
                 );
-                assertNotNull(finalizedPayment_2Of2);
-                assertFalse(finalizedPayment_2Of2.getFailed());
-                log.info("Payment (2 of 2) executed successfully: " + finalizedPayment_2Of2.getId());
+                assertNotNull(createdPayment_2Of2);
+                assertFalse(createdPayment_2Of2.getFailed());
+                log.info("Payment (2 of 2) executed successfully: " + createdPayment_2Of2.getId());
             } else {
                 log.info("********");
                 log.error("Cannot execute payment - grant finalization failed: " + opContinueInteract.getInteract().getRedirect());
@@ -506,7 +527,7 @@ class InterledgerApiClientHttpImpl {
         while (!payment.isCompleted() && count < 15) { // wait at least 10s ...
             count++;
 
-            payment = this.client.payment().getIncomingPayment(incomingPayment.getId(), ipGrant);
+            payment = this.client.payment().getIncoming(incomingPayment.getId(), ipGrant);
             assertNotNull(payment);
             log.info("********");
             log.info("Payment status check #" + count + " - Completed: " + payment.isCompleted());
