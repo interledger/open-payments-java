@@ -6,6 +6,7 @@ import org.interledger.openpayments.httpclient.OpenPaymentsHttpClient;
 import org.interledger.openpayments.model.common.Amount;
 import org.interledger.openpayments.model.grant.Grant;
 import org.interledger.openpayments.model.key.Ed25519PublicKey;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -58,6 +59,13 @@ class InterledgerApiClientHttpImpl {
             TestConfiguration.getClientPrivateKey(),
             TestHelper.getClientKeyId()
         );
+    }
+
+    @AfterEach
+    public void tearDown() {
+        if (httpServer != null) {
+            httpServer.shutdown();
+        }
     }
 
     /**
@@ -422,7 +430,7 @@ class InterledgerApiClientHttpImpl {
         // This implements the interactive authorization flow required by Open Payments.
         log.info("********");
         log.info("STEP 3: Create user interaction redirect");
-        int port = 8889;
+        int port = 8888;
         this.httpServer = new SimpleHttpServer(port);
         this.httpServer.start();
 
@@ -441,13 +449,8 @@ class InterledgerApiClientHttpImpl {
         // STEP 4: CHECK PAYMENT STATUS BEFORE FINALIZATION
         // Verify the payment state before attempting to finalize it
         log.info("********");
-<<<<<<< HEAD
         log.info("STEP 4: Check incoming payment status before finalization");
-        var payment = this.client.payment().getIncomingPayment(incomingPayment.getId(), ipGrant);
-=======
-        log.info("STEP 4.5: Check incoming payment status before finalization");
         var payment = this.client.payment().getIncoming(incomingPayment.getId(), ipGrant);
->>>>>>> main
         assertNotNull(payment);
         assertFalse(payment.isCompleted()); // Should not be completed yet
         log.info("Payment status before finalization: completed=" + payment.isCompleted());
@@ -469,37 +472,21 @@ class InterledgerApiClientHttpImpl {
                 // 2x incoming payments.
                 // STEP 6B: Execute the actual payment using the finalized grant
                 // This transfers the funds from sender to receiver
-<<<<<<< HEAD
-                var finalizedPayment_1Of2 = this.client.payment().finalizePayment(
+                var createdPayment_1Of2 = this.client.payment().createOutgoing(
                     finalized,
                     senderWallet,
                     payment,
                     Amount.build(BigDecimal.valueOf(10.00), payment.getIncomingAmount().getAssetCode())
-=======
-                var createdPayment_1Of2 = this.client.payment().createOutgoing(
-                        finalized,
-                        senderWallet,
-                        payment,
-                        Amount.build(BigDecimal.valueOf(10.00), payment.getIncomingAmount().getAssetCode())
->>>>>>> main
                 );
                 assertNotNull(createdPayment_1Of2);
                 assertFalse(createdPayment_1Of2.getFailed());
                 log.info("Payment (1 of 2) executed successfully: " + createdPayment_1Of2.getId());
 
-<<<<<<< HEAD
-                var finalizedPayment_2Of2 = this.client.payment().finalizePayment(
+                var createdPayment_2Of2 = this.client.payment().createOutgoing(
                     finalized,
                     senderWallet,
                     payment,
-                    Amount.build(BigDecimal.valueOf(2.25), senderWallet.getAssetCode())
-=======
-                var createdPayment_2Of2 = this.client.payment().createOutgoing(
-                        finalized,
-                        senderWallet,
-                        payment,
-                        Amount.build(BigDecimal.valueOf(2.25), payment.getIncomingAmount().getAssetCode())
->>>>>>> main
+                    Amount.build(BigDecimal.valueOf(2.25), payment.getIncomingAmount().getAssetCode())
                 );
                 assertNotNull(createdPayment_2Of2);
                 assertFalse(createdPayment_2Of2.getFailed());

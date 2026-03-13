@@ -223,7 +223,7 @@ public class OpenPaymentsHttpClientTest {
                 arg(
                     "createIncomingPayment",
                     () ->
-                        opClient.payment().incomingPayment(
+                        opClient.payment().createIncoming(
                             walletAddress, grantForIncomingPayment, BigDecimal.valueOf(100)),
                     incomingPayment),
                 arg("createGrantQuote", () -> opClient.auth().grant().quote(walletAddress), grantForQuote),
@@ -245,7 +245,7 @@ public class OpenPaymentsHttpClientTest {
                     grantForIncomingPayment),
                 arg(
                     "createFinalizePayment",
-                    () -> opClient.payment().finalizePayment(grantForIncomingPayment, walletAddress, quote),
+                    () -> opClient.payment().createOutgoing(grantForIncomingPayment, walletAddress, quote),
                     payment));
         }
 
