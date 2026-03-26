@@ -13,6 +13,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
 /**
  * A very small HTTP server that listens on a {@link ServerSocket} and handles basic HTTP GET requests.
  * <p>
+ * It is primarily a testing utility used to mock external API endpoints in unit or integration
+ * tests. It allows developers to verify that an outgoing request was made and to provide a controlled
+ * plain-text response.
+ * </p>
+ * <p>
  * This class is intended for lightweight testing scenarios. It does not implement the full HTTP specification.
  * It accepts connections, reads the first request line, and if it is a GET request, responds with a 200 OK and a
  * plain text body. Non-GET requests receive a 405 Method Not Allowed response.
