@@ -1,0 +1,48 @@
+name: Integration Test
+
+on:
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  integration:
+    name: Integration tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: gradle
+      - name: Set up integration environment
+        env:
+          CLIENT_WALLET_ADDRESS: ${{ secrets.CLIENT_WALLET_ADDRESS }}
+          CLIENT_PRIVATE_KEY: ${{ secrets.CLIENT_PRIVATE_KEY }}
+          CLIENT_KEY_ID: ${{ secrets.CLIENT_KEY_ID }}
+          SENDER_WALLET_ADDRESS: ${{ secrets.SENDER_WALLET_ADDRESS }}
+          RECEIVER_WALLET_ADDRESS: ${{ secrets.RECEIVER_WALLET_ADDRESS }}
+          TEST_WALLET_EMAIL: ${{ secrets.TEST_WALLET_EMAIL }}
+          TEST_WALLET_PASSWORD: ${{ secrets.TEST_WALLET_PASSWORD }}
+        run: |
+          if [ -z "${CLIENT_PRIVATE_KEY:-}" ]; then
+            echo "[integration] Secrets not found. Integration tests will be skipped."
+            exit 1
+          fi
+          
+          mkdir -p src/integrationTest/resources
+          
+          cat > src/integrationTest/resources/test-config.properties <<EOF
+          client.private.key=$CLIENT_PRIVATE_KEY
+          client.wallet.address=$CLIENT_WALLET_ADDRESS
+          client.key.id=$CLIENT_KEY_ID
+          sender.wallet.address=$SENDER_WALLET_ADDRESS
+          receiver.wallet.address=$RECEIVER_WALLET_ADDRESS
+          test.wallet.email=$TEST_WALLET_EMAIL
+          test.wallet.password=$TEST_WALLET_PASSWORD
+          EOF
+      - name: Run integration tests
+        run: ./gradlew clean integrationTest

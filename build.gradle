@@ -3,6 +3,7 @@ plugins {
     id 'maven-publish'
     // JReleaser for publishing to Maven Central
     id 'org.jreleaser' version '1.21.0'
+    id 'checkstyle'
 }
 
 group = 'org.interledger'
@@ -31,6 +32,8 @@ ext {
     logbackClassicVersion = '1.5.17'
     lombokVersion = '1.18.42'
     mockitoVersion = '5.14.2'
+    seleniumVersion = '4.41.0'
+    webDriverManagerVersion = '6.1.0'
 }
 
 // Define source sets for integration tests
@@ -38,7 +41,6 @@ sourceSets {
     integrationTest {
         java.srcDir 'src/integrationTest/java'
         resources.srcDir 'src/integrationTest/resources'
-        // Include classes from 'main' and 'test' source sets
         compileClasspath += sourceSets.main.output + sourceSets.test.output
         runtimeClasspath += sourceSets.main.output + sourceSets.test.output
     }
@@ -67,7 +69,7 @@ tasks.register('integrationTest', Test) {
 
     // Optional: Enable logging for debugging purposes
     testLogging {
-        events 'PASSED', 'FAILED', 'SKIPPED'
+        events = ['PASSED', 'FAILED', 'SKIPPED']
     }
 }
 
@@ -87,6 +89,26 @@ tasks.test {
 tasks.withType(Javadoc).configureEach {
     options.addStringOption('Xdoclint:all/public')
     failOnError = false
+}
+
+checkstyle {
+    configFile = file("${rootDir}/config/checkstyle/checkstyle.xml")
+    toolVersion = '10.12.4'
+    ignoreFailures = false
+    maxWarnings = 0
+}
+
+tasks.withType(Checkstyle).configureEach {
+    showViolations = true
+    reports {
+        xml.required = true
+        xml.outputLocation = file("${rootDir}/build/reports/checkstyle/${project.name}-checkstyle.xml")
+        html.required = true
+        html.outputLocation = file("${rootDir}/build/reports/checkstyle/${project.name}-checkstyle.html")
+    }
+    ignoreFailures = false
+    maxErrors = 0
+    maxWarnings = 0
 }
 
 dependencies {
@@ -117,6 +139,8 @@ dependencies {
     integrationTestRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:${junitVersion}"
     integrationTestImplementation "ch.qos.logback:logback-classic:${logbackClassicVersion}"
     integrationTestImplementation project(':')
+    integrationTestImplementation "org.seleniumhq.selenium:selenium-java:${seleniumVersion}"
+    integrationTestImplementation "io.github.bonigarcia:webdrivermanager:${webDriverManagerVersion}"
 
     // Needed for Gradle 9.0
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'

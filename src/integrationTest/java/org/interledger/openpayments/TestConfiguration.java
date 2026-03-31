@@ -6,14 +6,14 @@ import java.util.Properties;
 
 /**
  * Utility class for loading and accessing test configuration properties.
- *
+ * <p>
  * This class is responsible for loading configuration values from a
  * `test-config.properties` file located in the classpath. It provides methods
  * to retrieve required or optional configuration properties used in test cases.
- *
+ * <p>
  * The configuration file must be properly set up before running tests. If any
  * required property is missing or empty, a runtime exception is thrown.
- *
+ * <p>
  * This class is not meant to be instantiated, as all its methods are
  * static.
  */
@@ -33,7 +33,7 @@ public final class TestConfiguration {
         try (InputStream input = TestConfiguration.class.getClassLoader().getResourceAsStream(CONFIG_FILE)) {
             if (input == null) {
                 throw new RuntimeException("Configuration file '" + CONFIG_FILE + "' not found in test resources. " +
-                        "Please copy test-config.properties.template to test-config.properties and configure it.");
+                    "Please copy test-config.properties.template to test-config.properties and configure it.");
             }
             properties.load(input);
         } catch (IOException e) {
@@ -84,6 +84,24 @@ public final class TestConfiguration {
      */
     public static String getReceiverWalletAddress() {
         return getRequiredProperty("receiver.wallet.address");
+    }
+
+    /**
+     * Gets the test wallet email address for login
+     *
+     * @return the email address
+     */
+    public static String getTestWalletEmail() {
+        return getRequiredProperty("test.wallet.email");
+    }
+
+    /**
+     * Gets the test wallet password for login
+     *
+     * @return the password
+     */
+    public static String getTestWalletPassword() {
+        return getRequiredProperty("test.wallet.password");
     }
 
     /**

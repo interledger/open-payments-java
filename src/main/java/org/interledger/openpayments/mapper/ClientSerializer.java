@@ -23,8 +23,8 @@ public class ClientSerializer extends JsonSerializer<Client> {
     /**
      * Serializes a {@link Client} object by writing its {@code paymentPointer} property as a JSON string.
      *
-     * @param client The {@link Client} object to be serialized. Must not be null.
-     * @param gen The {@link JsonGenerator} used to write the serialized JSON output.
+     * @param client      The {@link Client} object to be serialized. Must not be null.
+     * @param gen         The {@link JsonGenerator} used to write the serialized JSON output.
      * @param serializers The {@link SerializerProvider} that can provide additional serializers if necessary.
      * @throws IOException If an I/O error occurs while writing the JSON output.
      */
