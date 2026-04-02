@@ -1,15 +1,20 @@
-name: Release to Maven Central
+name: Increment Version and Release
 
 on:
   push:
-    tags:
-      - 'v*.*.*'
+    branches:
+      - main
+    paths-ignore:
+      - 'gradle.properties'
 
 jobs:
-  release:
+  bump-and-release:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
     steps:
-      - name: Checkout
+      - name: Checkout Code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -20,9 +25,34 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
 
-      - name: Extract Version
-        id: vars
-        run: echo "tag_version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+      - name: Bump Version and Push Tag
+        id: versioning
+        run: |
+          # Extract current version
+          VERSION_LINE=$(grep "release.version=" gradle.properties)
+          CURRENT_VERSION=$(echo $VERSION_LINE | cut -d'=' -f2)
+          BASE_VERSION=${CURRENT_VERSION%-SNAPSHOT}
+          RELEASE_TAG="v$BASE_VERSION"
+          
+          # Calculate next snapshot
+          NEXT_VERSION=$(echo $BASE_VERSION | awk -F. '{$NF = $NF + 1;} 1' OFS=. | sed 's/$/-SNAPSHOT/')
+          
+          # Update file
+          sed -i "s/release.version=.*/release.version=$NEXT_VERSION/" gradle.properties
+
+          # Git config
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Commit, Tag, and Push
+          git add gradle.properties
+          git commit -m "chore: bump version to $NEXT_VERSION [skip ci]"
+          git tag -a "$RELEASE_TAG" -m "Release $RELEASE_TAG"
+          git push origin main --tags
+          
+          # Pass variables to next steps
+          echo "release_version=$BASE_VERSION" >> $GITHUB_OUTPUT
+          echo "release_tag=$RELEASE_TAG" >> $GITHUB_OUTPUT
 
       - name: Stage Artifacts
         run: ./gradlew publish
@@ -31,4 +61,4 @@ jobs:
         env:
           JRELEASER_MAVENCENTRAL_USERNAME: ${{ secrets.MAVENCENTRAL_USERNAME }}
           JRELEASER_MAVENCENTRAL_PASSWORD: ${{ secrets.MAVENCENTRAL_PASSWORD }}
-        run: ./gradlew jreleaserDeploy -Prelease.version=${{ steps.vars.outputs.tag_version }}
+        run: ./gradlew jreleaserDeploy -Prelease.version=${{ steps.versioning.outputs.release_version }}
