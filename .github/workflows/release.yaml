@@ -6,6 +6,7 @@ on:
       - main
     paths-ignore:
       - 'gradle.properties'
+  workflow_dispatch:
 
 jobs:
   bump-and-release:
