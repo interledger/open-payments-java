@@ -26,37 +26,17 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
 
-      - name: Bump Version and Push Tag
-        id: versioning
+      - name: Calculate Release Version
         run: |
-          # Extract current version
-          VERSION_LINE=$(grep "release.version=" gradle.properties)
-          CURRENT_VERSION=$(echo $VERSION_LINE | cut -d'=' -f2)
+          CURRENT_VERSION=$(grep "release.version=" gradle.properties | cut -d'=' -f2)
           BASE_VERSION=${CURRENT_VERSION%-SNAPSHOT}
           RELEASE_TAG="v$BASE_VERSION"
           
-          # Calculate next snapshot
-          NEXT_VERSION=$(echo $BASE_VERSION | awk -F. '{$NF = $NF + 1;} 1' OFS=. | sed 's/$/-SNAPSHOT/')
-          
-          # Update file
-          sed -i "s/release.version=.*/release.version=$NEXT_VERSION/" gradle.properties
-
-          # Git config
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-
-          # Commit, Tag, and Push
-          git add gradle.properties
-          git commit -m "chore: bump version to $NEXT_VERSION [skip ci]"
-          git tag -a "$RELEASE_TAG" -m "Release $RELEASE_TAG"
-          git push origin main --tags
-          
-          # Pass variables to next steps
           echo "release_version=$BASE_VERSION" >> $GITHUB_OUTPUT
           echo "release_tag=$RELEASE_TAG" >> $GITHUB_OUTPUT
 
       - name: Stage Artifacts
-        run: ./gradlew publish
+        run: ./gradlew publish -Prelease.version=${{ steps.versioning.outputs.release_version }}
 
       - name: Run JReleaser
         env:
@@ -66,4 +46,19 @@ jobs:
           JRELEASER_GPG_SECRET_KEY: ${{ secrets.JRELEASER_GPG_SECRET_KEY }}
           JRELEASER_GPG_PASSPHRASE: ${{ secrets.JRELEASER_GPG_PASSPHRASE }}
           JRELEASER_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: ./gradlew jreleaserFullRelease -Prelease.version=${{ steps.versioning.outputs.release_version }}
+        run: ./gradlew jreleaserDeploy -Prelease.version=${{ steps.versioning.outputs.release_version }}
+
+      - name: Bump Version to Next Snapshot and Push
+        if: success()
+        run: |
+          BASE_VERSION=${{ steps.versioning.outputs.release_version }}
+          NEXT_VERSION=$(echo $BASE_VERSION | awk -F. '{$NF = $NF + 1;} 1' OFS=. | sed 's/$/-SNAPSHOT/')
+          
+          sed -i "s/release.version=.*/release.version=$NEXT_VERSION/" gradle.properties
+          
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add gradle.properties
+          git commit -m "chore: bump version to $NEXT_VERSION [skip ci]"
+          git tag -a "${{ steps.versioning.outputs.release_tag }}" -m "Release ${{ steps.versioning.outputs.release_tag }}"
+          git push origin main --tags
