@@ -27,6 +27,7 @@ jobs:
           distribution: 'temurin'
 
       - name: Calculate Release Version
+        id: versioning
         run: |
           CURRENT_VERSION=$(grep "release.version=" gradle.properties | cut -d'=' -f2)
           BASE_VERSION=${CURRENT_VERSION%-SNAPSHOT}
@@ -52,8 +53,7 @@ jobs:
         if: success()
         run: |
           BASE_VERSION=${{ steps.versioning.outputs.release_version }}
-          NEXT_VERSION=$(echo $BASE_VERSION | awk -F. '{$NF = $NF + 1;} 1' OFS=. | sed 's/$/-SNAPSHOT/')
-          
+          NEXT_VERSION=$(echo $BASE | awk -F. '{$NF = $NF + 1;} 1' OFS=. | sed 's/$/-SNAPSHOT/')          
           sed -i "s/release.version=.*/release.version=$NEXT_VERSION/" gradle.properties
           
           git config --global user.name "github-actions[bot]"
