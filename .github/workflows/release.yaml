@@ -47,7 +47,7 @@ jobs:
           JRELEASER_GPG_SECRET_KEY: ${{ secrets.JRELEASER_GPG_SECRET_KEY }}
           JRELEASER_GPG_PASSPHRASE: ${{ secrets.JRELEASER_GPG_PASSPHRASE }}
           JRELEASER_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: ./gradlew jreleaserDeploy -Prelease.version=${{ steps.versioning.outputs.release_version }}
+        run: ./gradlew jreleaserDeploy -Prelease.version=${{ steps.versioning.outputs.release_version }} --stacktrace --info
 
       - name: Bump Version to Next Snapshot and Push
         if: success()
