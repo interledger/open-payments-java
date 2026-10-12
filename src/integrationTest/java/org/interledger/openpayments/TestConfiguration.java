@@ -111,6 +111,30 @@ public final class TestConfiguration {
      * @return the property value
      * @throws RuntimeException if the property is not found or empty
      */
+    public static String getCardTlvData() {
+        return getOptionalProperty("card.tlv.data", null);
+    }
+
+    public static String getCardRequestId() {
+        return getOptionalProperty("card.request.id", null);
+    }
+
+    public static String getCardPinBlock() {
+        return getOptionalProperty("card.pin.block", null);
+    }
+
+    public static String getCardPwkKey() {
+        return getRequiredProperty("card.pwk.key");
+    }
+
+    public static String getCardPwkKvc() {
+        return getRequiredProperty("card.pwk.kvc");
+    }
+
+    public static String getCardPwkIv() {
+        return getRequiredProperty("card.pwk.iv");
+    }
+
     private static String getRequiredProperty(String key) {
         String value = properties.getProperty(key);
         if (value == null || value.trim().isEmpty()) {

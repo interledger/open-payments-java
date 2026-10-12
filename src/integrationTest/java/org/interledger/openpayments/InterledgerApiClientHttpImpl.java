@@ -4,7 +4,9 @@ import io.github.bonigarcia.wdm.WebDriverManager;
 import lombok.extern.slf4j.Slf4j;
 import org.interledger.openpayments.httpclient.OpenPaymentsHttpClient;
 import org.interledger.openpayments.model.common.Amount;
+import org.interledger.openpayments.model.grant.CardAuthorization;
 import org.interledger.openpayments.model.grant.Grant;
+import org.interledger.openpayments.model.grant.PinWorkingKey;
 import org.interledger.openpayments.model.key.Ed25519PublicKey;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
@@ -24,10 +26,12 @@ import java.time.Duration;
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.UUID;
 
 import static java.lang.Thread.sleep;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * Implementation of the Interledger API Client using HTTP for communication.
@@ -231,6 +235,47 @@ class InterledgerApiClientHttpImpl {
      * Monitors the payment until its completion status is confirmed or a timeout is reached.
      *
      */
+    /**
+     * Card (EMV) authorization grant (Open Payments v1.4.0).
+     * Skipped unless {@code card.tlv.data} is configured in test-config.properties.
+     */
+    @Test
+    public void openPaymentsCardAuthorizationGrant() {
+        var tlvData = TestConfiguration.getCardTlvData();
+        assumeTrue(tlvData != null, "card.tlv.data not configured - skipping card authorization test");
+
+        var requestId = Optional.ofNullable(TestConfiguration.getCardRequestId())
+            .orElse(UUID.randomUUID().toString());
+        var pinBlock = TestConfiguration.getCardPinBlock();
+        var cardAuthorization = pinBlock == null
+            ? CardAuthorization.build(tlvData, requestId)
+            : CardAuthorization.build(tlvData, requestId, pinBlock, PinWorkingKey.build(
+                TestConfiguration.getCardPwkKey(),
+                TestConfiguration.getCardPwkKvc(),
+                TestConfiguration.getCardPwkIv()));
+
+        // STEP 1: Create an incoming payment on the receiver's wallet (the merchant).
+        var receiverWallet = client.walletAddress().get(TestHelper.getReceiverWalletAddress());
+        var ipGrant = this.client.auth().grant().incomingPayment(receiverWallet);
+        var incomingPayment = this.client.payment().createIncoming(receiverWallet, ipGrant, BigDecimal.valueOf(2.50));
+        assertNotNull(incomingPayment);
+
+        // STEP 2: Request a non-interactive outgoing payment grant authorized by the card.
+        var senderWallet = this.client.walletAddress().get(TestHelper.getSenderWalletAddress());
+        var grant = this.client.auth().grant().cardAuthorization(
+            senderWallet,
+            incomingPayment.getId(),
+            incomingPayment.getIncomingAmount(),
+            cardAuthorization
+        );
+        assertNotNull(grant);
+        assertNotNull(grant.getAccess());
+
+        var result = grant.getAccess().getAccess().iterator().next().getCardAuthorization();
+        assertNotNull(result);
+        log.info("Card authorization result (TLV): " + result.getTlvData());
+    }
+
     @Test
     public void openPaymentsCreateOutgoingFromQuote() throws InterruptedException {
         // STEP 0: RECEIVER WALLET DISCOVERY
@@ -491,6 +536,13 @@ class InterledgerApiClientHttpImpl {
                 assertNotNull(createdPayment_2Of2);
                 assertFalse(createdPayment_2Of2.getFailed());
                 log.info("Payment (2 of 2) executed successfully: " + createdPayment_2Of2.getId());
+
+                // STEP 6C: Get the spent amounts for the outgoing payment grant.
+                // Amounts are null until payments have been processed.
+                var spentAmounts = this.client.payment().getGrantSpentAmounts(senderWallet, finalized);
+                assertNotNull(spentAmounts);
+                log.info("Grant spent amounts: debit=" + spentAmounts.getSpentDebitAmount()
+                    + ", receive=" + spentAmounts.getSpentReceiveAmount());
             } else {
                 log.info("********");
                 log.error("Cannot execute payment - grant finalization failed: " + opContinueInteract.getInteract().getRedirect());

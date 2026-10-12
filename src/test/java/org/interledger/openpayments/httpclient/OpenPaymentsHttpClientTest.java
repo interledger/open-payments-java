@@ -5,9 +5,12 @@ import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 import org.interledger.openpayments.exception.OpenPaymentsAPIException;
 import org.interledger.openpayments.exception.OpenPaymentsClientException;
+import org.interledger.openpayments.mapper.OpenPaymentsObjectMapper;
 import org.interledger.openpayments.model.common.ApiError;
+import org.interledger.openpayments.model.grant.CardAuthorization;
 import org.interledger.openpayments.model.grant.Client;
 import org.interledger.openpayments.model.grant.Grant;
+import org.interledger.openpayments.model.grant.Limits;
 import org.interledger.openpayments.model.incomingpayment.IncomingPayment;
 import org.interledger.openpayments.model.key.Ed25519Keys;
 import org.interledger.openpayments.model.outgoingpayment.OutgoingPayment;
@@ -32,8 +35,12 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.security.NoSuchAlgorithmException;
+import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.Flow;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
@@ -211,46 +218,187 @@ public class OpenPaymentsHttpClientTest {
                 arg(
                     "getWalletAddress",
                     () -> opClient.walletAddress().get("https://wallet.example.com"),
-                    walletAddress),
+                    createWalletAddress()),
                 arg(
                     "getKeys",
                     () -> opClient.walletAddress().keys("https://wallet.example.com"),
-                    keys),
+                    createKeys()),
                 arg(
                     "createGrantIncomingPayment",
                     () -> opClient.auth().grant().incomingPayment(walletAddress),
-                    grantForIncomingPayment),
+                    createGrantForIncomingPayment()),
                 arg(
                     "createIncomingPayment",
                     () ->
                         opClient.payment().createIncoming(
                             walletAddress, grantForIncomingPayment, BigDecimal.valueOf(100)),
-                    incomingPayment),
-                arg("createGrantQuote", () -> opClient.auth().grant().quote(walletAddress), grantForQuote),
+                    createIncomingPayment()),
+                arg("createGrantQuote", () -> opClient.auth().grant().quote(walletAddress), createGrantForQuote()),
                 arg(
                     "createQuote",
                     () -> opClient.quote().create(
                         "quote-token-123", walletAddress, incomingPayment, Optional.empty(), Optional.empty()
                     ),
-                    quote),
+                    createQuote()),
                 arg(
                     "createGrantContinuation",
                     () ->
                         opClient.auth().grant().continuation(
                             walletAddress, quote.getDebitAmount(), URI.create("https://app/cb"), "nonce123"),
-                    outgoingPayment),
+                    createOutgoingPayment()),
                 arg(
                     "createGrantFinalize",
                     () -> opClient.auth().grant().finalize(outgoingPayment, "interact-123"),
-                    grantForIncomingPayment),
+                    createGrantForIncomingPayment()),
                 arg(
                     "createFinalizePayment",
                     () -> opClient.payment().createOutgoing(grantForIncomingPayment, walletAddress, quote),
-                    payment));
+                    createOutgoingPayment()),
+                arg(
+                    "createGrantContinuationWithIntervalLimits",
+                    () ->
+                        opClient.auth().grant().continuation(
+                            walletAddress,
+                            Limits.debit(quote.getDebitAmount(), "R3/2025-05-20T13:00:00Z/P1M"),
+                            URI.create("https://app/cb"),
+                            "nonce123"),
+                    outgoingPayment),
+                arg(
+                    "createGrantVerifyOwnership",
+                    () -> opClient.auth().grant().verifyOwnership(walletAddress, URI.create("https://app/cb"), "nonce123"),
+                    createPendingGrant()),
+                arg(
+                    "createGrantFinalizePendingGrant",
+                    () -> opClient.auth().grant().finalize(createPendingGrant(), "interact-123"),
+                    createGrantForSubject()),
+                arg(
+                    "createGrantCardAuthorization",
+                    () ->
+                        opClient.auth().grant().cardAuthorization(
+                            walletAddress,
+                            URI.create(TEST_URL + "incoming-payments/1"),
+                            quote.getDebitAmount(),
+                            CardAuthorization.build("9F26089F27019F1002", "request-1")),
+                    createGrantForOutgoingPayment()),
+                arg(
+                    "getGrantSpentAmounts",
+                    () -> opClient.payment().getGrantSpentAmounts(walletAddress, createGrantForOutgoingPayment()),
+                    createGrantSpentAmounts()));
         }
 
         private static <T> Arguments arg(String name, Supplier<T> call, Object response) {
             return Arguments.of(name, call, response);
+        }
+    }
+
+    @DisplayName("Open Payments v1.4.0 – request targets and bodies")
+    @Nested
+    class SpecV140Requests {
+        private HttpRequest captureRequest(Object response, Runnable call) throws Exception {
+            var requestCaptor = ArgumentCaptor.forClass(HttpRequest.class);
+            when(httpClient.send(any(HttpRequest.class), eq(HttpResponse.BodyHandlers.ofString())))
+                .thenReturn(createResponse(response));
+            call.run();
+            verify(httpClient).send(requestCaptor.capture(), eq(HttpResponse.BodyHandlers.ofString()));
+            return requestCaptor.getValue();
+        }
+
+        private String body(HttpRequest request) throws Exception {
+            var publisher = request.bodyPublisher().orElseThrow();
+            var subscriber = HttpResponse.BodySubscribers.ofString(StandardCharsets.UTF_8);
+            publisher.subscribe(new Flow.Subscriber<>() {
+                @Override
+                public void onSubscribe(Flow.Subscription subscription) {
+                    subscriber.onSubscribe(subscription);
+                }
+
+                @Override
+                public void onNext(ByteBuffer item) {
+                    subscriber.onNext(List.of(item));
+                }
+
+                @Override
+                public void onError(Throwable throwable) {
+                    subscriber.onError(throwable);
+                }
+
+                @Override
+                public void onComplete() {
+                    subscriber.onComplete();
+                }
+            });
+            return subscriber.getBody().toCompletableFuture().get();
+        }
+
+        @Test
+        void shouldGetGrantSpentAmountsFromResourceServer() throws Exception {
+            var request = captureRequest(createGrantSpentAmounts(),
+                () -> opClient.payment().getGrantSpentAmounts(walletAddress, createGrantForOutgoingPayment()));
+
+            assertEquals("GET", request.method());
+            assertEquals(URI.create(TEST_URL + "outgoing-payment-grant/"), request.uri());
+            assertEquals("GNAP token", request.headers().firstValue("Authorization").orElseThrow());
+        }
+
+        @Test
+        void shouldRequestSubjectGrantForOwnershipVerification() throws Exception {
+            var request = captureRequest(createPendingGrant(),
+                () -> opClient.auth().grant().verifyOwnership(walletAddress, URI.create("https://app/cb"), "nonce123"));
+
+            assertEquals("POST", request.method());
+            assertEquals(URI.create(walletAddress.getAuthServer() + "/"), request.uri());
+
+            var json = OpenPaymentsObjectMapper.get().readTree(body(request));
+            assertFalse(json.has("access_token"));
+            assertEquals(walletAddress.getId(), json.at("/subject/sub_ids/0/id").asText());
+            assertEquals("uri", json.at("/subject/sub_ids/0/format").asText());
+            assertEquals("redirect", json.at("/interact/finish/method").asText());
+            assertEquals("nonce123", json.at("/interact/finish/nonce").asText());
+        }
+
+        @Test
+        void shouldContinuePendingGrantWithInteractRef() throws Exception {
+            var pendingGrant = createPendingGrant();
+            var request = captureRequest(createGrantForSubject(),
+                () -> opClient.auth().grant().finalize(pendingGrant, "interact-123"));
+
+            assertEquals("POST", request.method());
+            assertEquals(URI.create(pendingGrant.getGrantContinue().getUri() + "/"), request.uri());
+            assertEquals("GNAP continue-token", request.headers().firstValue("Authorization").orElseThrow());
+            assertEquals("interact-123",
+                OpenPaymentsObjectMapper.get().readTree(body(request)).get("interact_ref").asText());
+        }
+
+        @Test
+        void shouldRequestOutgoingGrantWithInterval() throws Exception {
+            var request = captureRequest(outgoingPayment,
+                () -> opClient.auth().grant().continuation(
+                    walletAddress,
+                    Limits.debit(quote.getDebitAmount(), "R3/2025-05-20T13:00:00Z/P1M"),
+                    URI.create("https://app/cb"),
+                    "nonce123"));
+
+            var item = OpenPaymentsObjectMapper.get().readTree(body(request)).at("/access_token/access/0");
+            assertEquals("outgoing-payment", item.get("type").asText());
+            assertEquals(walletAddress.getId(), item.get("identifier").asText());
+            assertEquals("R3/2025-05-20T13:00:00Z/P1M", item.at("/limits/interval").asText());
+            assertEquals(quote.getDebitAmount().getValue(), item.at("/limits/debitAmount/value").asText());
+        }
+
+        @Test
+        void shouldRequestCardAuthorizationGrantWithoutInteraction() throws Exception {
+            var receiver = URI.create(TEST_URL + "incoming-payments/1");
+            var request = captureRequest(createGrantForOutgoingPayment(),
+                () -> opClient.auth().grant().cardAuthorization(
+                    walletAddress, receiver, quote.getDebitAmount(), CardAuthorization.build("9F26089F27019F1002", "request-1")));
+
+            var json = OpenPaymentsObjectMapper.get().readTree(body(request));
+            assertFalse(json.has("interact"));
+            var item = json.at("/access_token/access/0");
+            assertEquals(receiver.toString(), item.at("/limits/receiver").asText());
+            assertEquals(quote.getDebitAmount().getValue(), item.at("/limits/receiveAmount/value").asText());
+            assertEquals("9F26089F27019F1002", item.at("/cardAuthorization/tlvData").asText());
+            assertEquals("request-1", item.at("/cardAuthorization/requestId").asText());
         }
     }
 
