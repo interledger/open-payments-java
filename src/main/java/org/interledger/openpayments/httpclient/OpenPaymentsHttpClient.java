@@ -682,8 +682,10 @@ public class OpenPaymentsHttpClient implements IOpenPaymentsClient {
 
             var subjectRequest = GrantRequest.subject(
                     this.baseClient.clientWallet,
-                    Subject.walletAddress(walletAddress.getIdAsURI())
-            ).redirectInteract(returnUrl, nonce);
+                    Subject.walletAddress(walletAddress.getIdAsURI()),
+                    returnUrl,
+                    nonce
+            );
 
             var request = new SignatureRequestBuilder(this.baseClient.privateKey, this.baseClient.keyId, this.baseClient.mapper)
                     .POST(subjectRequest)

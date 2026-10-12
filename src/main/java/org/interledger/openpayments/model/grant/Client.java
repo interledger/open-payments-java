@@ -6,9 +6,11 @@ import org.interledger.openpayments.mapper.ClientSerializer;
 import org.interledger.openpayments.model.key.Ed25519PublicKey;
 
 import java.net.URI;
+import java.util.regex.Pattern;
 
 import static org.interledger.openpayments.util.UtilGlobal.ensureNotNull;
 import static org.interledger.openpayments.util.UtilGlobal.ensureNotNullOrEmpty;
+import static org.interledger.openpayments.util.UtilGlobal.ensureTrue;
 
 /**
  * Identifies the client instance making a grant request to the authorization server.
@@ -42,6 +44,12 @@ import static org.interledger.openpayments.util.UtilGlobal.ensureNotNullOrEmpty;
 @Data
 @JsonSerialize(using = ClientSerializer.class)
 public class Client {
+    private static final String JWK_ALG = "EdDSA";
+    private static final String JWK_KTY = "OKP";
+    private static final String JWK_CRV = "Ed25519";
+    private static final String JWK_USE = "sig";
+    private static final Pattern JWK_X_PATTERN = Pattern.compile("^[a-zA-Z0-9-_]+$");
+
     /**
      * The supported client identification formats.
      */
@@ -112,7 +120,7 @@ public class Client {
     }
 
     private Client(Ed25519PublicKey jwk) {
-        ensureNotNull(jwk, "jwk cannot be null.");
+        ensureValidJwk(jwk);
         this.paymentPointer = null;
         this.jwk = jwk;
         this.format = Format.DIRECTED_IDENTITY;
@@ -138,6 +146,9 @@ public class Client {
      *
      * @param jwk the client's Ed25519 public key
      * @return a new client
+     * @throws org.interledger.openpayments.exception.OpenPaymentsClientException if the key is
+     *         missing a required field ({@code kid}, {@code alg}, {@code kty}, {@code crv},
+     *         {@code x}) or is not an Ed25519 signing key
      */
     public static Client directedIdentity(Ed25519PublicKey jwk) {
         return new Client(jwk);
@@ -154,5 +165,21 @@ public class Client {
     @Deprecated
     public static Client walletAddressString(URI address) {
         return new Client(address, Format.WALLET_ADDRESS_STRING);
+    }
+
+    /**
+     * Validates a JWK against the Open Payments {@code json-web-key} schema: {@code kid},
+     * {@code alg}, {@code kty}, {@code crv} and {@code x} are required, and only Ed25519
+     * signing keys are allowed.
+     */
+    private static void ensureValidJwk(Ed25519PublicKey jwk) {
+        ensureNotNull(jwk, "jwk cannot be null.");
+        ensureNotNullOrEmpty(jwk.getKid(), "jwk.kid cannot be null or empty.");
+        ensureTrue(JWK_ALG.equals(jwk.getAlg()), String.format("jwk.alg must be '%s'.", JWK_ALG));
+        ensureTrue(JWK_KTY.equals(jwk.getKty()), String.format("jwk.kty must be '%s'.", JWK_KTY));
+        ensureTrue(JWK_CRV.equals(jwk.getCrv()), String.format("jwk.crv must be '%s'.", JWK_CRV));
+        ensureTrue(jwk.getUse() == null || JWK_USE.equals(jwk.getUse()), String.format("jwk.use must be '%s'.", JWK_USE));
+        ensureNotNullOrEmpty(jwk.getX(), "jwk.x cannot be null or empty.");
+        ensureTrue(JWK_X_PATTERN.matcher(jwk.getX()).matches(), "jwk.x must be a base64 url-encoded public key.");
     }
 }

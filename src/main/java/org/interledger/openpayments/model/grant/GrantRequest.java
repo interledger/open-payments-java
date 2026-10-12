@@ -205,19 +205,22 @@ public class GrantRequest {
      * Creates a grant request that asks the authorization server to verify that the user
      * has access to the given subject (e.g. a wallet address).
      *
-     * <p>No access token is requested. The request requires user interaction, so call
-     * {@link #redirectInteract(URI, String)} before sending it.
+     * <p>No access token is requested. The specification requires {@code interact} for a
+     * subject request, so redirect interaction is always configured.
      *
      * @param clientWallet the client wallet address making the request
      * @param subject      the subject the user must prove access to
-     * @return a new GrantRequest containing only the client and subject
+     * @param returnUrl    the URL to return to when interaction is finished, or null to omit
+     * @param nonce        a unique value to secure the interaction callback; required when returnUrl is set
+     * @return a new GrantRequest containing the client, subject and interact
      */
-    public static GrantRequest subject(Client clientWallet, Subject subject) {
+    public static GrantRequest subject(Client clientWallet, Subject subject, URI returnUrl, String nonce) {
         ensureNotNull(subject, "subject cannot be null.");
+        ensureNotNullOrEmpty(subject.getSubIds(), "subject.sub_ids cannot be null or empty.");
 
         GrantRequest request = new GrantRequest(clientWallet);
         request.subject = subject;
-        return request;
+        return request.redirectInteract(returnUrl, nonce);
     }
 
     /**

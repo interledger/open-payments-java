@@ -11,6 +11,8 @@ import org.interledger.openpayments.model.outgoingpayment.OutgoingPaymentGrantSp
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import java.math.BigDecimal;
 import java.net.URI;
@@ -57,14 +59,51 @@ public class GrantModelSerializationTest {
             assertEquals(Client.Format.WALLET_ADDRESS, new Client(WALLET).getFormat());
         }
 
-        @Test
-        void shouldWriteDirectedIdentity() throws Exception {
+        private Ed25519PublicKey validJwk() {
             var jwk = new Ed25519PublicKey();
             jwk.setKid("key-1");
             jwk.setAlg("EdDSA");
             jwk.setKty("OKP");
             jwk.setCrv("Ed25519");
             jwk.setX("oy0L_vTygNE4IogRyn_F5GmHXdqYVjIXkWs2jky7zsI");
+            return jwk;
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @CsvSource(nullValues = "NULL", value = {
+            "missing kid,   kid, NULL",
+            "empty kid,     kid, ''",
+            "wrong alg,     alg, Ed25519",
+            "missing alg,   alg, NULL",
+            "wrong kty,     kty, EC",
+            "wrong crv,     crv, P-256",
+            "wrong use,     use, enc",
+            "missing x,     x,   NULL",
+            "x not base64url, x, 'abc+/='"
+        })
+        void shouldRejectInvalidDirectedIdentityJwk(String description, String field, String value) {
+            var jwk = validJwk();
+            switch (field) {
+                case "kid" -> jwk.setKid(value);
+                case "alg" -> jwk.setAlg(value);
+                case "kty" -> jwk.setKty(value);
+                case "crv" -> jwk.setCrv(value);
+                case "use" -> jwk.setUse(value);
+                default -> jwk.setX(value);
+            }
+            assertThrows(OpenPaymentsClientException.class, () -> Client.directedIdentity(jwk));
+        }
+
+        @Test
+        void shouldAcceptJwkWithSigUse() {
+            var jwk = validJwk();
+            jwk.setUse("sig");
+            assertEquals(Client.Format.DIRECTED_IDENTITY, Client.directedIdentity(jwk).getFormat());
+        }
+
+        @Test
+        void shouldWriteDirectedIdentity() throws Exception {
+            var jwk = validJwk();
 
             var expected = readTree("{\"jwk\":{\"kid\":\"key-1\",\"alg\":\"EdDSA\",\"kty\":\"OKP\","
                 + "\"crv\":\"Ed25519\",\"x\":\"oy0L_vTygNE4IogRyn_F5GmHXdqYVjIXkWs2jky7zsI\"}}");
@@ -94,8 +133,11 @@ public class GrantModelSerializationTest {
     class GrantRequests {
         @Test
         void shouldWriteSubjectRequestWithoutAccessToken() throws Exception {
-            var request = GrantRequest.subject(new Client(WALLET), Subject.walletAddress(URI.create(WALLET)))
-                .redirectInteract(URI.create("https://paymentplatform.example/finish"), "nonce-1");
+            var request = GrantRequest.subject(
+                new Client(WALLET),
+                Subject.walletAddress(URI.create(WALLET)),
+                URI.create("https://paymentplatform.example/finish"),
+                "nonce-1");
 
             var expected = readTree("{"
                 + "\"client\":{\"walletAddress\":\"" + WALLET + "\"},"
@@ -105,6 +147,27 @@ public class GrantModelSerializationTest {
                 + "}");
 
             assertEquals(expected, toJson(request));
+        }
+
+        @Test
+        void shouldAlwaysIncludeInteractInSubjectRequest() {
+            var request = GrantRequest.subject(new Client(WALLET), Subject.walletAddress(URI.create(WALLET)), null, null);
+
+            var interact = toJson(request).get("interact");
+            assertNotNull(interact);
+            assertEquals("redirect", interact.at("/start/0").asText());
+            assertFalse(interact.has("finish"));
+        }
+
+        @Test
+        void shouldRejectInvalidSubjectRequest() {
+            var client = new Client(WALLET);
+            var subject = Subject.walletAddress(URI.create(WALLET));
+            var returnUrl = URI.create("https://paymentplatform.example/finish");
+
+            assertThrows(OpenPaymentsClientException.class, () -> GrantRequest.subject(client, null, returnUrl, "nonce-1"));
+            assertThrows(OpenPaymentsClientException.class, () -> GrantRequest.subject(client, new Subject(), returnUrl, "nonce-1"));
+            assertThrows(OpenPaymentsClientException.class, () -> GrantRequest.subject(client, subject, returnUrl, null));
         }
 
         @Test
