@@ -6,6 +6,7 @@ import org.interledger.openpayments.model.grant.Grant;
 import org.interledger.openpayments.model.incomingpayment.IncomingPayment;
 import org.interledger.openpayments.model.incomingpayment.IncomingPaymentsResult;
 import org.interledger.openpayments.model.outgoingpayment.OutgoingPayment;
+import org.interledger.openpayments.model.outgoingpayment.OutgoingPaymentGrantSpentAmounts;
 import org.interledger.openpayments.model.outgoingpayment.OutgoingPaymentsResult;
 import org.interledger.openpayments.model.quote.Quote;
 import org.interledger.openpayments.model.walletaddress.WalletAddress;
@@ -140,4 +141,16 @@ public interface IOpenPaymentsPaymentClient {
             URI walletAddressUri,
             Grant grantRequest
     );
+
+    /**
+     * Retrieves the spent amounts for the current outgoing payment grant.
+     *
+     * <p>The grant is identified by its access token. For grants created with an
+     * {@code interval}, the amounts are for the current interval only.
+     *
+     * @param resourceServer the resource server of the sender, e.g. the sender's {@code WalletAddress}
+     * @param grant          the outgoing payment grant (after a successful grant continuation)
+     * @return the spent debit and receive amounts; each is {@code null} if nothing has been spent yet
+     */
+    OutgoingPaymentGrantSpentAmounts getGrantSpentAmounts(IResourceServer resourceServer, Grant grant);
 }

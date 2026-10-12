@@ -76,6 +76,19 @@ public class AccessItem {
     private Limits limits;
 
     /**
+     * Optional card (EMV) authorization data, only valid for outgoing payment access items
+     * (Open Payments v1.4.0+).
+     *
+     * <p>In a grant request it carries the card credentials; in a grant response it carries
+     * the authorization result.
+     *
+     * @see CardAuthorization
+     */
+    @JsonProperty("cardAuthorization")
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private CardAuthorization cardAuthorization;
+
+    /**
      * Configures this access item for outgoing payment operations.
      * 
      * <p>This convenience method sets up the access item with the specified
@@ -90,9 +103,23 @@ public class AccessItem {
     public AccessItem accessOutgoing(URI identifier, Amount debitAmount) {
         ensureNotNull(identifier, "identifier cannot be null.");
         ensureNotNull(debitAmount, "debitAmount cannot be null.");
+        return accessOutgoing(identifier, Limits.debit(debitAmount));
+    }
+
+    /**
+     * Configures this access item for outgoing payment operations with the given limits.
+     *
+     * <p>Use this to request grants with a {@code receiveAmount} limit, a specific
+     * {@code receiver}, or a recurring {@code interval} (e.g. for future payments).
+     *
+     * @param identifier the sender wallet address the outgoing payments are made from
+     * @param limits the limits under which outgoing payments can be created, or null for none
+     * @return this AccessItem instance for method chaining
+     */
+    public AccessItem accessOutgoing(URI identifier, Limits limits) {
+        ensureNotNull(identifier, "identifier cannot be null.");
         this.identifier = identifier;
-        limits = new Limits();
-        limits.setDebitAmount(debitAmount);
+        this.limits = limits;
         return this;
     }
 }

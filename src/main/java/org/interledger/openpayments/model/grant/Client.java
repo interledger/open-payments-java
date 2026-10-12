@@ -3,6 +3,7 @@ package org.interledger.openpayments.model.grant;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import lombok.Data;
 import org.interledger.openpayments.mapper.ClientSerializer;
+import org.interledger.openpayments.model.key.Ed25519PublicKey;
 
 import java.net.URI;
 
@@ -10,15 +11,24 @@ import static org.interledger.openpayments.util.UtilGlobal.ensureNotNull;
 import static org.interledger.openpayments.util.UtilGlobal.ensureNotNullOrEmpty;
 
 /**
- * Represents a wallet address for Interledger Open Payments operations.
+ * Identifies the client instance making a grant request to the authorization server.
  *
- * <p>A wallet address is a URL that identifies a specific wallet or account
- * within the Interledger network. It serves as the primary identifier for
- * sending and receiving payments through the Open Payments protocol.
+ * <p>Open Payments (v1.3.0+) supports three forms of client identification:
+ * <ul>
+ *   <li>{@link Format#WALLET_ADDRESS} - an object with a {@code walletAddress} property, e.g.
+ *       {@code {"walletAddress": "https://ilp.interledger-test.dev/alice"}}. This is the default
+ *       when using the {@link #Client(String)} or {@link #Client(URI)} constructors.</li>
+ *   <li>{@link Format#DIRECTED_IDENTITY} - an object with a {@code jwk} property containing the
+ *       client's public key. The authorization server does not need to resolve a wallet address,
+ *       which improves privacy. Only allowed for non-interactive grant requests
+ *       (e.g. incoming payments).</li>
+ *   <li>{@link Format#WALLET_ADDRESS_STRING} - the wallet address as a plain string.
+ *       <strong>Deprecated</strong> by the specification and kept only for backwards compatibility
+ *       with authorization servers that do not support the object form.</li>
+ * </ul>
  *
- * <p>Wallet addresses are typically hosted by Rafiki instances and follow
- * the URI format. They are used to discover wallet capabilities, create
- * payment resources, and identify parties in payment transactions.
+ * <p>When using a wallet address, a JSON Web Key Set containing the public key used to sign the
+ * request MUST be available at the wallet address + {@code /jwks.json}.
  *
  * <p>Example wallet addresses:
  * <ul>
@@ -27,52 +37,122 @@ import static org.interledger.openpayments.util.UtilGlobal.ensureNotNullOrEmpty;
  *   <li>"https://wallet.example.com/user123"</li>
  * </ul>
  *
- * <p>This class is immutable and thread-safe. The wallet address is validated
- * during construction to ensure it's a valid URI.
+ * <p>This class is immutable and thread-safe.
  */
 @Data
 @JsonSerialize(using = ClientSerializer.class)
 public class Client {
     /**
-     * The URI representing the wallet address.
+     * The supported client identification formats.
+     */
+    public enum Format {
+        /**
+         * Object form: {@code {"walletAddress": "<uri>"}}.
+         */
+        WALLET_ADDRESS,
+
+        /**
+         * Directed identity: {@code {"jwk": {...}}}.
+         */
+        DIRECTED_IDENTITY,
+
+        /**
+         * Deprecated plain string form: {@code "<uri>"}.
+         */
+        WALLET_ADDRESS_STRING
+    }
+
+    /**
+     * The URI representing the client wallet address.
      *
-     * <p>This is the actual wallet address URI that identifies the wallet
-     * within the Interledger network. It's used for payment operations,
-     * resource discovery, and wallet identification.
-     *
-     * <p>The URI must be valid and typically follows the HTTPS scheme
-     * for security purposes.
+     * <p>Present for {@link Format#WALLET_ADDRESS} and {@link Format#WALLET_ADDRESS_STRING},
+     * {@code null} for {@link Format#DIRECTED_IDENTITY}.
      */
     private final URI paymentPointer;
 
     /**
-     * Constructs a new WalletAddress from a string URI.
-     *
-     * <p>This constructor parses the provided address string into a URI
-     * and validates that it's not null. The string should be a valid
-     * URI format.
+     * The client's public key, used for {@link Format#DIRECTED_IDENTITY}.
+     */
+    private final Ed25519PublicKey jwk;
+
+    /**
+     * How this client is serialized in grant requests.
+     */
+    private final Format format;
+
+    /**
+     * Constructs a new client identified by its wallet address (object form) from a string URI.
      *
      * @param address the wallet address as a string (e.g., "https://ilp.interledger-test.dev/alice")
-     * @throws IllegalArgumentException if the address is null
+     * @throws IllegalArgumentException if the address is null or empty
      * @throws IllegalArgumentException if the address is not a valid URI format
      */
     public Client(String address) {
         ensureNotNullOrEmpty(address, "paymentPointer cannot be null or empty.");
         this.paymentPointer = URI.create(address);
+        this.jwk = null;
+        this.format = Format.WALLET_ADDRESS;
     }
 
     /**
-     * Constructs a new WalletAddress from a URI object.
-     *
-     * <p>This constructor accepts a pre-parsed URI object and validates
-     * that it's not null. This is useful when you already have a URI
-     * object from other operations.
+     * Constructs a new client identified by its wallet address (object form) from a URI object.
      *
      * @param address the wallet address as a URI object
      * @throws IllegalArgumentException if the address is null
      */
     public Client(URI address) {
+        this(address, Format.WALLET_ADDRESS);
+    }
+
+    private Client(URI address, Format format) {
         ensureNotNull(address, "paymentPointer cannot be null.");
         this.paymentPointer = address;
+        this.jwk = null;
+        this.format = format;
+    }
+
+    private Client(Ed25519PublicKey jwk) {
+        ensureNotNull(jwk, "jwk cannot be null.");
+        this.paymentPointer = null;
+        this.jwk = jwk;
+        this.format = Format.DIRECTED_IDENTITY;
+    }
+
+    /**
+     * Creates a client identified by its wallet address, serialized as
+     * {@code {"walletAddress": "<uri>"}}.
+     *
+     * @param address the client wallet address
+     * @return a new client
+     */
+    public static Client walletAddress(URI address) {
+        return new Client(address, Format.WALLET_ADDRESS);
+    }
+
+    /**
+     * Creates a client using directed identity, serialized as {@code {"jwk": {...}}}.
+     *
+     * <p>The authorization server uses the supplied public key to verify the request signature,
+     * so the key MUST match the private key used to sign requests. Directed identity can only be
+     * used for non-interactive grant requests (e.g. incoming payments).
+     *
+     * @param jwk the client's Ed25519 public key
+     * @return a new client
+     */
+    public static Client directedIdentity(Ed25519PublicKey jwk) {
+        return new Client(jwk);
+    }
+
+    /**
+     * Creates a client identified by its wallet address, serialized as a plain string.
+     *
+     * @param address the client wallet address
+     * @return a new client
+     * @deprecated the plain string form is deprecated by the Open Payments specification.
+     *             Use {@link #walletAddress(URI)} or {@link #directedIdentity(Ed25519PublicKey)}.
+     */
+    @Deprecated
+    public static Client walletAddressString(URI address) {
+        return new Client(address, Format.WALLET_ADDRESS_STRING);
     }
 }

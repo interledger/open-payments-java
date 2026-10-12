@@ -68,7 +68,21 @@ public class GrantRequest {
      * @see AccessToken
      */
     @JsonProperty("access_token")
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     private AccessToken accessToken;
+
+    /**
+     * Optional subject the client is requesting information about.
+     *
+     * <p>Used to verify that the user has access to a wallet address. A grant request
+     * must contain an {@code access_token} request, a {@code subject} (together with
+     * {@code interact}), or both.
+     *
+     * @see Subject
+     */
+    @JsonProperty("subject")
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private Subject subject;
 
     /**
      * Optional interaction methods for obtaining user consent.
@@ -158,6 +172,51 @@ public class GrantRequest {
         Optional<AccessItem> found = request.accessToken.getAccess().stream().findFirst();
         found.ifPresent(accessItem -> accessItem.accessOutgoing(identifier, debitAmount));
 
+        return request;
+    }
+
+    /**
+     * Creates a grant access request for outgoing payment operations with the given limits.
+     *
+     * <p>Use this to request a grant with a {@code receiveAmount} limit, a specific
+     * {@code receiver}, or a recurring {@code interval} (e.g. for future payments).
+     *
+     * @param clientWallet  the client wallet address making the request
+     * @param accessActions the set of actions to be performed (typically create and read)
+     * @param identifier    the sender wallet address the outgoing payments are made from
+     * @param limits        the limits under which outgoing payments can be created, or null for none
+     * @return a new GrantRequest configured for outgoing payments
+     */
+    public static GrantRequest outgoing(
+            Client clientWallet,
+            Set<AccessAction> accessActions,
+            URI identifier,
+            Limits limits
+    ) {
+        GrantRequest request = build(clientWallet, AccessItemType.outgoingPayment, accessActions);
+
+        Optional<AccessItem> found = request.accessToken.getAccess().stream().findFirst();
+        found.ifPresent(accessItem -> accessItem.accessOutgoing(identifier, limits));
+
+        return request;
+    }
+
+    /**
+     * Creates a grant request that asks the authorization server to verify that the user
+     * has access to the given subject (e.g. a wallet address).
+     *
+     * <p>No access token is requested. The request requires user interaction, so call
+     * {@link #redirectInteract(URI, String)} before sending it.
+     *
+     * @param clientWallet the client wallet address making the request
+     * @param subject      the subject the user must prove access to
+     * @return a new GrantRequest containing only the client and subject
+     */
+    public static GrantRequest subject(Client clientWallet, Subject subject) {
+        ensureNotNull(subject, "subject cannot be null.");
+
+        GrantRequest request = new GrantRequest(clientWallet);
+        request.subject = subject;
         return request;
     }
 

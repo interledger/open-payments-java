@@ -7,6 +7,8 @@ import org.interledger.openpayments.model.common.Amount;
 
 import java.net.URI;
 
+import static org.interledger.openpayments.util.UtilGlobal.ensureNotNull;
+
 /**
  * Represents access limits for Interledger payment operations.
  * 
@@ -67,25 +69,71 @@ public class Limits {
     /**
      * ISO8601 repeating interval specification for recurring payment limits.
      * 
-     * <p>This field defines the time interval for recurring payment operations.
-     * It follows the ISO8601 duration and repeating interval format, allowing
-     * for complex recurring payment schedules.
-     * 
-     * <p><strong>Note:</strong> This field is currently not fully implemented
-     * and is reserved for future use when repeating transaction functionality
-     * is added to the system.
-     * 
+     * <p>This field defines the time interval for recurring payment operations
+     * (e.g. a grant for future payments). It follows the ISO8601 repeating
+     * interval format. Amount limits apply per interval, and the spent amounts
+     * returned for the grant reflect the current interval only.
+     *
      * <p>Example formats:
      * <ul>
-     *   <li>P1D - Daily recurring</li>
-     *   <li>P1W - Weekly recurring</li>
-     *   <li>P1M - Monthly recurring</li>
-     *   <li>R12/2023-01-01T00:00:00Z/P1M - 12 monthly payments starting January 1, 2023</li>
+     *   <li>R12/2023-01-01T00:00:00Z/P1M - 12 monthly intervals starting January 1, 2023</li>
+     *   <li>R/2017-03-01T13:00:00Z/2018-05-11T15:30:00Z - unbounded repetition of a fixed interval</li>
+     *   <li>R-1/P1Y2M10DT2H30M/2022-05-11T15:30:00Z - unbounded repetition ending at a date</li>
      * </ul>
-     * 
-     * @see <a href="https://en.wikipedia.org/wiki/ISO_8601#Durations">ISO8601 Duration Format</a>
+     *
+     * @see <a href="https://en.wikipedia.org/wiki/ISO_8601#Repeating_intervals">ISO8601 Repeating Intervals</a>
      */
     @JsonProperty("interval")
     @JsonInclude(JsonInclude.Include.NON_NULL)
     private String interval;
+
+    /**
+     * Creates limits with a maximum debit amount.
+     *
+     * @param debitAmount the maximum amount that can be debited
+     * @return new limits
+     */
+    public static Limits debit(Amount debitAmount) {
+        return debit(debitAmount, null);
+    }
+
+    /**
+     * Creates limits with a maximum debit amount per interval.
+     *
+     * @param debitAmount the maximum amount that can be debited per interval
+     * @param interval    the ISO8601 repeating interval, or null for a one-off limit
+     * @return new limits
+     */
+    public static Limits debit(Amount debitAmount, String interval) {
+        ensureNotNull(debitAmount, "debitAmount cannot be null.");
+        var limits = new Limits();
+        limits.debitAmount = debitAmount;
+        limits.interval = interval;
+        return limits;
+    }
+
+    /**
+     * Creates limits with a maximum receive amount.
+     *
+     * @param receiveAmount the maximum amount that can be received
+     * @return new limits
+     */
+    public static Limits receive(Amount receiveAmount) {
+        return receive(receiveAmount, null);
+    }
+
+    /**
+     * Creates limits with a maximum receive amount per interval.
+     *
+     * @param receiveAmount the maximum amount that can be received per interval
+     * @param interval      the ISO8601 repeating interval, or null for a one-off limit
+     * @return new limits
+     */
+    public static Limits receive(Amount receiveAmount, String interval) {
+        ensureNotNull(receiveAmount, "receiveAmount cannot be null.");
+        var limits = new Limits();
+        limits.receiveAmount = receiveAmount;
+        limits.interval = interval;
+        return limits;
+    }
 }

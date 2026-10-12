@@ -491,6 +491,13 @@ class InterledgerApiClientHttpImpl {
                 assertNotNull(createdPayment_2Of2);
                 assertFalse(createdPayment_2Of2.getFailed());
                 log.info("Payment (2 of 2) executed successfully: " + createdPayment_2Of2.getId());
+
+                // STEP 6C: Get the spent amounts for the outgoing payment grant.
+                // Amounts are null until payments have been processed.
+                var spentAmounts = this.client.payment().getGrantSpentAmounts(senderWallet, finalized);
+                assertNotNull(spentAmounts);
+                log.info("Grant spent amounts: debit=" + spentAmounts.getSpentDebitAmount()
+                    + ", receive=" + spentAmounts.getSpentReceiveAmount());
             } else {
                 log.info("********");
                 log.error("Cannot execute payment - grant finalization failed: " + opContinueInteract.getInteract().getRedirect());

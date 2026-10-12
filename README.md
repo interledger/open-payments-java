@@ -83,6 +83,37 @@ Maven dependency (Please see [Maven Central](https://central.sonatype.com/artifa
 </dependency>
 ```
 
+### Open Payments specification support
+
+The SDK implements [Open Payments specification v1.4.0](https://github.com/interledger/open-payments-specifications/releases/tag/v1.4.0), including:
+
+- Spent amounts for the current outgoing payment grant (`GET /outgoing-payment-grant`)
+- Wallet address ownership verification using a `subject` grant
+- Outgoing payment grants with `interval` limits (future and recurring payments)
+- Card (EMV) authorization on outgoing payment grants
+- Client identification using the `walletAddress` object form (default) or a directed identity `jwk`
+
+```java
+var client = OpenPaymentsHttpClient.defaultClient(CLIENT_WALLET_ADDRESS, PRIVATE_KEY_PEM, KEY_ID);
+var userWallet = client.walletAddress().get(WALLET_ADDRESS);
+
+// Request an outgoing payment grant for future payments: 100.00 CAD per month, 3 times.
+var limits = Limits.debit(Amount.build(new BigDecimal("100.00"), "CAD"), "R3/2025-05-20T13:00:00Z/P1M");
+var pendingPayment = client.auth().grant().continuation(userWallet, limits, RETURN_URL, NONCE);
+// ...redirect the user to pendingPayment.getInteract().getRedirect(), then:
+var outgoingPaymentGrant = client.auth().grant().finalize(pendingPayment, INTERACT_REF);
+
+// Get the spent amounts for the current outgoing payment grant (current interval for recurring grants).
+var spent = client.payment().getGrantSpentAmounts(userWallet, outgoingPaymentGrant);
+System.out.println(spent.getSpentDebitAmount());
+
+// Verify that the user has access to their wallet address.
+var pendingVerification = client.auth().grant().verifyOwnership(userWallet, RETURN_URL, NONCE);
+// ...redirect the user to pendingVerification.getInteract().getRedirect(), then:
+var verified = client.auth().grant().finalize(pendingVerification, INTERACT_REF);
+System.out.println(verified.getSubject().getSubIds().getFirst().getId());
+```
+
 Gradle commands:
 ```sh
 # Clean build (Linux)

@@ -14,6 +14,7 @@ import org.interledger.openpayments.model.incomingpayment.IncomingPayment;
 import org.interledger.openpayments.model.incomingpayment.IncomingPaymentsResult;
 import org.interledger.openpayments.model.key.Ed25519Keys;
 import org.interledger.openpayments.model.outgoingpayment.OutgoingPayment;
+import org.interledger.openpayments.model.outgoingpayment.OutgoingPaymentGrantSpentAmounts;
 import org.interledger.openpayments.model.outgoingpayment.OutgoingPaymentRequest;
 import org.interledger.openpayments.model.outgoingpayment.OutgoingPaymentsResult;
 import org.interledger.openpayments.model.payment.PaymentRequest;
@@ -501,6 +502,31 @@ public class OpenPaymentsHttpClient implements IOpenPaymentsClient {
 
             return this.baseClient.send(request, OutgoingPaymentsResult.class);
         }
+
+        /**
+         * Retrieves the spent amounts for the outgoing payment grant identified by the grant's access token.
+         *
+         * @param resourceServer The resource server of the sender. Must not be null.
+         * @param grant The outgoing payment grant. Must not be null.
+         * @return the spent debit and receive amounts for the current grant (or current interval).
+         * @throws IllegalArgumentException If the resourceServer or grant parameter is null.
+         */
+        @Override
+        public OutgoingPaymentGrantSpentAmounts getGrantSpentAmounts(IResourceServer resourceServer, Grant grant) {
+            log.debug("getGrantSpentAmounts: {}", resourceServer);
+            UtilGlobal.ensureNotNull(resourceServer, "ResourceServer cannot be null");
+            UtilGlobal.ensureNotNullOrEmpty(resourceServer.getResourceServer(), "ResourceServer cannot be empty");
+            UtilGlobal.ensureNotNull(grant, "Grant cannot be null");
+
+            var request = new SignatureRequestBuilder(this.baseClient.privateKey, this.baseClient.keyId, this.baseClient.mapper)
+                    .GET()
+                    .target(this.baseClient.buildResourceUrl(
+                            UtilGlobal.toUri(resourceServer.getResourceServer()), ResourcePath.OUTGOING_PAYMENT_GRANT))
+                    .accessToken(this.baseClient.extractAccessToken(grant))
+                    .getRequest(this.baseClient.options);
+
+            return this.baseClient.send(request, OutgoingPaymentGrantSpentAmounts.class);
+        }
     }
 
     /**
@@ -592,16 +618,39 @@ public class OpenPaymentsHttpClient implements IOpenPaymentsClient {
         ) {
             log.debug("grantContinuation: ({},{},{})", sender, debitAmount, returnUrl);
 
-            ensureNotNull(sender, "PaymentPointer sender cannot be null");
             ensureNotNull(debitAmount, "DebitAmount cannot be null");
+            return continuation(sender, Limits.debit(debitAmount), returnUrl, nonce);
+        }
+
+        /**
+         * Requests an interactive outgoing payment grant with the given limits, e.g. a debit
+         * amount per {@code interval} for future payments.
+         *
+         * @param sender    The wallet address of the entity initiating the payment. Must not be null.
+         * @param limits    The limits under which outgoing payments can be created, or null for none.
+         * @param returnUrl The URL to which the user will be redirected after processing the grant. Must not be null.
+         * @param nonce     A unique identifier to prevent replay attacks. Must not be null or empty.
+         * @return OutgoingPayment object containing the interaction and continuation details.
+         * @throws IllegalArgumentException if any of the required input parameters are null or invalid.
+         */
+        @Override
+        public OutgoingPayment continuation(
+                WalletAddress sender,
+                Limits limits,
+                URI returnUrl,
+                String nonce
+        ) {
+            log.debug("grantContinuation: ({},{},{})", sender, limits, returnUrl);
+
+            ensureNotNull(sender, "PaymentPointer sender cannot be null");
             ensureNotNull(returnUrl, "Return URL cannot be null");
             ensureNotNullOrEmpty(nonce, "Nonce cannot be null or empty");
 
             var accessRequest = GrantRequest.outgoing(
                     this.baseClient.clientWallet,
-                    AccessItemType.outgoingPayment,
                     Set.of(AccessAction.read, AccessAction.create),
-                    sender.getIdAsURI(), debitAmount
+                    sender.getIdAsURI(),
+                    limits
             ).redirectInteract(returnUrl, nonce);
 
             var request = new SignatureRequestBuilder(this.baseClient.privateKey, this.baseClient.keyId, this.baseClient.mapper)
@@ -610,6 +659,108 @@ public class OpenPaymentsHttpClient implements IOpenPaymentsClient {
                     .getRequest(this.baseClient.options);
 
             return this.baseClient.send(request, OutgoingPayment.class);
+        }
+
+        /**
+         * Requests an interactive grant containing only a {@code subject}, to verify that the
+         * user has access to the given wallet address.
+         *
+         * @param walletAddress The wallet address the user must prove access to. Must not be null.
+         * @param returnUrl     The URL to which the user will be redirected after the interaction. Must not be null.
+         * @param nonce         A unique identifier to prevent replay attacks. Must not be null or empty.
+         * @return the pending grant, containing interaction and continuation details.
+         * @throws IllegalArgumentException if any of the input parameters are null or invalid.
+         */
+        @Override
+        public PendingGrant verifyOwnership(WalletAddress walletAddress, URI returnUrl, String nonce) {
+            log.debug("grantVerifyOwnership: ({},{})", walletAddress, returnUrl);
+
+            ensureNotNull(walletAddress, "WalletAddress cannot be null");
+            ensureNotNullOrEmpty(walletAddress.getAuthServer(), "AuthServer cannot be empty");
+            ensureNotNull(returnUrl, "Return URL cannot be null");
+            ensureNotNullOrEmpty(nonce, "Nonce cannot be null or empty");
+
+            var subjectRequest = GrantRequest.subject(
+                    this.baseClient.clientWallet,
+                    Subject.walletAddress(walletAddress.getIdAsURI())
+            ).redirectInteract(returnUrl, nonce);
+
+            var request = new SignatureRequestBuilder(this.baseClient.privateKey, this.baseClient.keyId, this.baseClient.mapper)
+                    .POST(subjectRequest)
+                    .target(walletAddress.getAuthServer())
+                    .getRequest(this.baseClient.options);
+
+            return this.baseClient.send(request, PendingGrant.class);
+        }
+
+        /**
+         * Requests a non-interactive outgoing payment grant authorizing a card (EMV) payment.
+         *
+         * @param sender            The card holder's wallet address. Must not be null.
+         * @param receiver          The incoming payment URI the payment will be made to. Must not be null.
+         * @param receiveAmount     The amount to be received. Must not be null.
+         * @param cardAuthorization The card credentials. Must not be null.
+         * @return the grant containing the access token and the card authorization result.
+         * @throws IllegalArgumentException if any of the input parameters are null or invalid.
+         */
+        @Override
+        public Grant cardAuthorization(
+                WalletAddress sender,
+                URI receiver,
+                Amount receiveAmount,
+                CardAuthorization cardAuthorization
+        ) {
+            log.debug("grantCardAuthorization: ({},{},{})", sender, receiver, receiveAmount);
+
+            ensureNotNull(sender, "WalletAddress sender cannot be null");
+            ensureNotNullOrEmpty(sender.getAuthServer(), "AuthServer cannot be empty");
+            ensureNotNull(receiver, "Receiver cannot be null");
+            ensureNotNull(receiveAmount, "ReceiveAmount cannot be null");
+            ensureNotNull(cardAuthorization, "CardAuthorization cannot be null");
+
+            var limits = Limits.receive(receiveAmount);
+            limits.setReceiver(receiver);
+
+            var accessRequest = GrantRequest.outgoing(
+                    this.baseClient.clientWallet,
+                    Set.of(AccessAction.create, AccessAction.read),
+                    sender.getIdAsURI(),
+                    limits
+            );
+            accessRequest.getAccessToken().getAccess().forEach(item -> item.setCardAuthorization(cardAuthorization));
+
+            var request = new SignatureRequestBuilder(this.baseClient.privateKey, this.baseClient.keyId, this.baseClient.mapper)
+                    .POST(accessRequest)
+                    .target(sender.getAuthServer())
+                    .getRequest(this.baseClient.options);
+
+            return this.baseClient.send(request, Grant.class);
+        }
+
+        /**
+         * Continues a pending grant after the user has completed the interaction.
+         *
+         * @param pendingGrant The pending grant returned by the initial grant request. Must not be null.
+         * @param interactRef  The interaction reference received on the return URL. Must not be null or empty.
+         * @return the grant, containing an access token and/or subject information.
+         * @throws IllegalArgumentException If any of the parameters are null or invalid.
+         */
+        @Override
+        public Grant finalize(PendingGrant pendingGrant, String interactRef) {
+            log.debug("grantFinalize: ({},{})", pendingGrant, interactRef);
+
+            ensureNotNull(pendingGrant, "PendingGrant cannot be null");
+            ensureNotNull(pendingGrant.getGrantContinue(), "PendingGrant.continue cannot be null");
+            ensureNotNull(pendingGrant.getGrantContinue().getAccess(), "PendingGrant.continue.access_token cannot be null");
+            ensureNotNullOrEmpty(interactRef, "Interact reference cannot be null or empty");
+
+            var request = new SignatureRequestBuilder(this.baseClient.privateKey, this.baseClient.keyId, this.baseClient.mapper)
+                    .POST(InteractRef.build(interactRef))
+                    .target(pendingGrant.getGrantContinue().getUri())
+                    .accessToken(pendingGrant.getGrantContinue().getAccess().getToken())
+                    .getRequest(this.baseClient.options);
+
+            return this.baseClient.send(request, Grant.class);
         }
 
         /**
@@ -798,6 +949,7 @@ public class OpenPaymentsHttpClient implements IOpenPaymentsClient {
     private static class ResourcePath {
         public static final String INCOMING_PAYMENTS = "/incoming-payments";
         public static final String OUTGOING_PAYMENTS = "/outgoing-payments";
+        public static final String OUTGOING_PAYMENT_GRANT = "/outgoing-payment-grant";
         public static final String QUOTES = "/quotes";
     }
 
@@ -956,8 +1108,9 @@ public class OpenPaymentsHttpClient implements IOpenPaymentsClient {
         ensureNotNull(baseUri, "Base URI cannot be null");
         ensureNotNull(path, "Path cannot be null");
         var normalizedPath = path.startsWith("/") ? path : "/" + path;
-        var resolved = baseUri.toString().concat(normalizedPath);
-        return URI.create(resolved);
+        var base = baseUri.toString();
+        if (base.endsWith("/")) base = base.substring(0, base.length() - 1);
+        return URI.create(base.concat(normalizedPath));
     }
 
     /**
