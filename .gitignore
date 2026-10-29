@@ -25,3 +25,7 @@ replay_pid*
 
 /build
 /src/integrationTest/resources/test-config.properties
+
+# Project
+/.idea
+/.gradle
