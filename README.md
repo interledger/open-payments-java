@@ -83,6 +83,51 @@ Maven dependency (Please see [Maven Central](https://central.sonatype.com/artifa
 </dependency>
 ```
 
+### Open Payments specification support
+
+The SDK implements [Open Payments specification v1.4.0](https://github.com/interledger/open-payments-specifications/releases/tag/v1.4.0). New in v1.4.0:
+
+- Card (EMV) authorization on outgoing payment grants
+
+Added from earlier specification versions (v1.1 to v1.3):
+
+- Spent amounts for the current outgoing payment grant (`GET /outgoing-payment-grant`)
+- Wallet address ownership verification using a `subject` grant
+- Outgoing payment grants with `interval` limits (future and recurring payments)
+- Client identification using the `walletAddress` object form (default) or a directed identity `jwk`
+
+**Upgrade notes:**
+
+- Grant requests now identify the client as `{"walletAddress": "..."}` instead of a plain string.
+  For authorization servers that only accept the string form, use
+  `OpenPaymentsHttpClient.defaultClient(Client.walletAddressString(uri), PRIVATE_KEY_PEM, KEY_ID)`.
+- A directed identity (`jwk`) client can only be used for non-interactive grants (e.g. incoming payments).
+- Request targets are no longer given a trailing `/` (e.g. `POST /incoming-payments`, not `/incoming-payments/`).
+- Deprecated: `continuation(sender, debitAmount, …)` and `finalize(OutgoingPayment, …)`. Use
+  `continuation(sender, Limits.debit(debitAmount), …)`, which returns a `PendingGrant`, and `finalize(PendingGrant, …)`.
+- Deprecated: `OutgoingPayment.getReceivedAmount()`. Use `getReceiveAmount()`.
+
+```java
+var client = OpenPaymentsHttpClient.defaultClient(CLIENT_WALLET_ADDRESS, PRIVATE_KEY_PEM, KEY_ID);
+var userWallet = client.walletAddress().get(WALLET_ADDRESS);
+
+// Request an outgoing payment grant for future payments: 100.00 CAD per month, 3 times.
+var limits = Limits.debit(Amount.build(new BigDecimal("100.00"), "CAD"), "R3/2025-05-20T13:00:00Z/P1M");
+var pendingPayment = client.auth().grant().continuation(userWallet, limits, RETURN_URL, NONCE);
+// ...redirect the user to pendingPayment.getInteract().getRedirect(), then:
+var outgoingPaymentGrant = client.auth().grant().finalize(pendingPayment, INTERACT_REF);
+
+// Get the spent amounts for the current outgoing payment grant (current interval for recurring grants).
+var spent = client.payment().getGrantSpentAmounts(userWallet, outgoingPaymentGrant);
+System.out.println(spent.getSpentDebitAmount());
+
+// Verify that the user has access to their wallet address.
+var pendingVerification = client.auth().grant().verifyOwnership(userWallet, RETURN_URL, NONCE);
+// ...redirect the user to pendingVerification.getInteract().getRedirect(), then:
+var verified = client.auth().grant().finalize(pendingVerification, INTERACT_REF);
+System.out.println(verified.getSubject().getSubIds().getFirst().getId());
+```
+
 Gradle commands:
 ```sh
 # Clean build (Linux)

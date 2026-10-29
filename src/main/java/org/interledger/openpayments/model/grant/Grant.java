@@ -51,4 +51,18 @@ public class Grant {
     @JsonProperty("continue")
     @JsonInclude(JsonInclude.Include.NON_NULL)
     private AccessContinue accessContinue;
+
+    /**
+     * Optional subject information, returned by a grant continuation when the grant
+     * request contained a {@code subject} and the user has proved access to it.
+     *
+     * <p>When present, the authorization server has verified that the user has access
+     * to the wallet address(es) listed in {@link Subject#getSubIds()}. A subject-only
+     * grant does not include an access token.
+     *
+     * @see Subject
+     */
+    @JsonProperty("subject")
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private Subject subject;
 }

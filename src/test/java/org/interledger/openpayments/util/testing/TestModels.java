@@ -6,6 +6,7 @@ import org.interledger.openpayments.model.incomingpayment.IncomingPayment;
 import org.interledger.openpayments.model.key.Ed25519Keys;
 import org.interledger.openpayments.model.key.Ed25519PublicKey;
 import org.interledger.openpayments.model.outgoingpayment.OutgoingPayment;
+import org.interledger.openpayments.model.outgoingpayment.OutgoingPaymentGrantSpentAmounts;
 import org.interledger.openpayments.model.payment.Payment;
 import org.interledger.openpayments.model.quote.Quote;
 import org.interledger.openpayments.model.walletaddress.WalletAddress;
@@ -68,7 +69,10 @@ public final class TestModels {
         accessContinue.setAccess(accessToken);
         outgoingPayment.setPaymentContinue(accessContinue);
         outgoingPayment.setToken("token");
-        outgoingPayment.setInteract(new InteractContinue());
+        var interact = new InteractContinue();
+        interact.setRedirect(URI.create(AUTH_URL + "/interact/1"));
+        interact.setToken("finish");
+        outgoingPayment.setInteract(interact);
         return outgoingPayment;
     }
 
@@ -98,6 +102,39 @@ public final class TestModels {
         grant.setAccess(access);
         grant.setAccessContinue(new AccessContinue());
         return grant;
+    }
+
+    public static PendingGrant createPendingGrant() {
+        var pendingGrant = new PendingGrant();
+        var accessContinue = new AccessContinue();
+        accessContinue.setUri(URI.create(AUTH_URL + "/continue/1"));
+        var accessToken = new AccessToken();
+        accessToken.setToken("continue-token");
+        accessContinue.setAccess(accessToken);
+        pendingGrant.setGrantContinue(accessContinue);
+        var interact = new InteractContinue();
+        interact.setRedirect(URI.create(AUTH_URL + "/interact/1"));
+        interact.setToken("finish");
+        pendingGrant.setInteract(interact);
+        return pendingGrant;
+    }
+
+    public static Grant createGrantForSubject() {
+        var grant = new Grant();
+        grant.setSubject(Subject.walletAddress(URI.create(WALLET_ADDRESS_URL)));
+        grant.setAccessContinue(new AccessContinue());
+        return grant;
+    }
+
+    public static Grant createGrantForOutgoingPayment() {
+        return createGrant(AccessItemType.outgoingPayment, Set.of(AccessAction.read, AccessAction.create));
+    }
+
+    public static OutgoingPaymentGrantSpentAmounts createGrantSpentAmounts() {
+        var spent = new OutgoingPaymentGrantSpentAmounts();
+        spent.setSpentDebitAmount(Amount.build(BigDecimal.valueOf(26), "USD"));
+        spent.setSpentReceiveAmount(Amount.build(BigDecimal.valueOf(25), "USD"));
+        return spent;
     }
 
     public static Payment createPayment() {

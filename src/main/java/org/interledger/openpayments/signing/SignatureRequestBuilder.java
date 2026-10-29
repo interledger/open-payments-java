@@ -193,8 +193,8 @@ public class SignatureRequestBuilder {
     /**
      * Sets the target URI for the request.
      *
-     * <p>The URI is normalized to ensure it ends with '/' when no query parameters
-     * are present, as required by the signature specification.
+     * <p>A bare origin (no path and no query) is given a "/" path, so the signed
+     * {@code @target-uri} matches the request line. Any other URI is used as is.
      *
      * @param value target URI for the HTTP request
      * @return this builder for method chaining
@@ -366,16 +366,19 @@ public class SignatureRequestBuilder {
     }
 
     /**
-     * URL must end with "/" in case no query parameters are present
+     * Adds a "/" path to a bare origin (e.g. {@code https://auth.example}), so the signed
+     * {@code @target-uri} matches the URI the server rebuilds from the request line ({@code /}).
+     * All other targets are used as is: Open Payments paths have no trailing slash, and servers
+     * that route strictly reject {@code /incoming-payments/}.
      *
      * @param value URL
-     * @return URL that ends with '/'
+     * @return URL with a path
      */
     private String prepareTarget(URI value) {
         ensureNotNull(value, "Target URI cannot be null!");
-        // We must fix target so it conforms to expectations
         var out = value.toString();
-        if (!out.endsWith("/") && value.getQuery() == null) {
+        var path = value.getRawPath();
+        if ((path == null || path.isEmpty()) && value.getRawQuery() == null) {
             return out + "/";
         }
 

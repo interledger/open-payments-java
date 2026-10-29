@@ -1,5 +1,7 @@
 package org.interledger.openpayments.model.outgoingpayment;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 import org.interledger.openpayments.model.common.Amount;
@@ -8,6 +10,7 @@ import org.interledger.openpayments.model.grant.InteractContinue;
 
 import java.net.URI;
 import java.time.Instant;
+import java.util.Map;
 
 /**
  * Represents the response from creating an outgoing payment request.
@@ -104,14 +107,14 @@ public class OutgoingPayment {
     private URI receiver;
 
     /**
-     * The actual amount received so far for this payment.
+     * The amount that will be received by the receiver for this payment.
      *
-     * <p>This tracks the cumulative amount that has been successfully received
-     * for this outgoing payment. It starts at zero and increases as payments
-     * are received from senders.
+     * <p>Mapped from the {@code receiveAmount} property defined by the Open Payments
+     * specification. The legacy {@code receivedAmount} property name is still accepted.
      */
-    @JsonProperty(value = "receivedAmount", required = false)
-    private Amount receivedAmount;
+    @JsonProperty(value = "receiveAmount", required = false)
+    @JsonAlias("receivedAmount")
+    private Amount receiveAmount;
 
     /**
      * Represents the monetary amount that will be debited from the sender's account
@@ -156,6 +159,33 @@ public class OutgoingPayment {
      */
     @JsonProperty(value = "sentAmount", required = false)
     private Amount sentAmount;
+
+    /**
+     * The total amount deducted from the sender's account under the outgoing payment grant
+     * used to create this payment, including this payment.
+     *
+     * <p>Only returned when the outgoing payment is created. For grants with an interval,
+     * the amount is for the current interval.
+     */
+    @JsonProperty(value = "grantSpentDebitAmount", required = false)
+    private Amount grantSpentDebitAmount;
+
+    /**
+     * The total amount received under the outgoing payment grant used to create this payment,
+     * including this payment.
+     *
+     * <p>Only returned when the outgoing payment is created. For grants with an interval,
+     * the amount is for the current interval.
+     */
+    @JsonProperty(value = "grantSpentReceiveAmount", required = false)
+    private Amount grantSpentReceiveAmount;
+
+    /**
+     * Optional free-form metadata associated with this outgoing payment,
+     * e.g. {@code {"description": "APlusVideo subscription", "externalRef": "customer: 847458475"}}.
+     */
+    @JsonProperty(value = "metadata", required = false)
+    private Map<String, Object> metadata;
 
     /**
      * Timestamp when this outgoing payment was created.
@@ -211,4 +241,24 @@ public class OutgoingPayment {
      */
     @JsonProperty(value = "access_token")
     private String token;
+
+    /**
+     * @return the amount that will be received by the receiver
+     * @deprecated use {@link #getReceiveAmount()}, which matches the specification's {@code receiveAmount}.
+     */
+    @Deprecated
+    @JsonIgnore
+    public Amount getReceivedAmount() {
+        return receiveAmount;
+    }
+
+    /**
+     * @param receivedAmount the amount that will be received by the receiver
+     * @deprecated use {@link #setReceiveAmount(Amount)}.
+     */
+    @Deprecated
+    @JsonIgnore
+    public void setReceivedAmount(Amount receivedAmount) {
+        this.receiveAmount = receivedAmount;
+    }
 }

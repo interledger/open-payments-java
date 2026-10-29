@@ -8,12 +8,13 @@ import org.interledger.openpayments.model.grant.Client;
 import java.io.IOException;
 
 /**
- * A custom serializer for the {@link Client} class that serializes the {@code paymentPointer}
- * property of the client object as a string.
- *
- * <p>This serializer is designed to be used with JSON serialization frameworks like Jackson.
- * It converts the {@link java.net.URI} representation of the {@code paymentPointer} into its string form
- * and writes it as a JSON string.
+ * A custom serializer for the {@link Client} class that writes the client in the format
+ * selected by {@link Client#getFormat()}:
+ * <ul>
+ *   <li>{@link Client.Format#WALLET_ADDRESS} - {@code {"walletAddress": "<uri>"}}</li>
+ *   <li>{@link Client.Format#DIRECTED_IDENTITY} - {@code {"jwk": {...}}}</li>
+ *   <li>{@link Client.Format#WALLET_ADDRESS_STRING} - {@code "<uri>"} (deprecated)</li>
+ * </ul>
  *
  * <p>Note that this serializer only handles the serialization of the {@link Client} object;
  * deserialization logic, if needed, must be implemented separately.
@@ -21,19 +22,46 @@ import java.io.IOException;
 public class ClientSerializer extends JsonSerializer<Client> {
 
     /**
-     * Serializes a {@link Client} object by writing its {@code paymentPointer} property as a JSON string.
+     * Serializes a {@link Client} object according to its {@link Client.Format}.
      *
-     * @param client      The {@link Client} object to be serialized. Must not be null.
+     * @param client      The {@link Client} object to be serialized.
      * @param gen         The {@link JsonGenerator} used to write the serialized JSON output.
      * @param serializers The {@link SerializerProvider} that can provide additional serializers if necessary.
      * @throws IOException If an I/O error occurs while writing the JSON output.
      */
     @Override
     public void serialize(Client client, JsonGenerator gen, SerializerProvider serializers) throws IOException {
-        if (client == null || client.getPaymentPointer() == null) {
+        if (client == null || client.getFormat() == null) {
             gen.writeNull();
-        } else {
-            gen.writeString(client.getPaymentPointer().toString());
+            return;
+        }
+
+        switch (client.getFormat()) {
+            case DIRECTED_IDENTITY -> {
+                if (client.getJwk() == null) {
+                    gen.writeNull();
+                    return;
+                }
+                gen.writeStartObject();
+                serializers.defaultSerializeField("jwk", client.getJwk(), gen);
+                gen.writeEndObject();
+            }
+            case WALLET_ADDRESS_STRING -> {
+                if (client.getPaymentPointer() == null) {
+                    gen.writeNull();
+                    return;
+                }
+                gen.writeString(client.getPaymentPointer().toString());
+            }
+            default -> {
+                if (client.getPaymentPointer() == null) {
+                    gen.writeNull();
+                    return;
+                }
+                gen.writeStartObject();
+                gen.writeStringField("walletAddress", client.getPaymentPointer().toString());
+                gen.writeEndObject();
+            }
         }
     }
 }
