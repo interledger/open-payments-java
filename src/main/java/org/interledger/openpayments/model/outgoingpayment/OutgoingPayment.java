@@ -1,6 +1,7 @@
 package org.interledger.openpayments.model.outgoingpayment;
 
 import com.fasterxml.jackson.annotation.JsonAlias;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 import org.interledger.openpayments.model.common.Amount;
@@ -113,7 +114,7 @@ public class OutgoingPayment {
      */
     @JsonProperty(value = "receiveAmount", required = false)
     @JsonAlias("receivedAmount")
-    private Amount receivedAmount;
+    private Amount receiveAmount;
 
     /**
      * Represents the monetary amount that will be debited from the sender's account
@@ -240,4 +241,24 @@ public class OutgoingPayment {
      */
     @JsonProperty(value = "access_token")
     private String token;
+
+    /**
+     * @return the amount that will be received by the receiver
+     * @deprecated use {@link #getReceiveAmount()}, which matches the specification's {@code receiveAmount}.
+     */
+    @Deprecated
+    @JsonIgnore
+    public Amount getReceivedAmount() {
+        return receiveAmount;
+    }
+
+    /**
+     * @param receivedAmount the amount that will be received by the receiver
+     * @deprecated use {@link #setReceiveAmount(Amount)}.
+     */
+    @Deprecated
+    @JsonIgnore
+    public void setReceivedAmount(Amount receivedAmount) {
+        this.receiveAmount = receivedAmount;
+    }
 }

@@ -214,6 +214,21 @@ public class SignatureRequestBuilderTest {
             assertEquals(value + '/', builder.getParameters().get("@target-uri"));
         }
 
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {
+            "https://api.example.com/",
+            "https://api.example.com/incoming-payments",
+            "https://auth.example.com/continue/4CF492MLVMSW9MKMXKHQ",
+            "https://api.example.com/outgoing-payment-grant",
+            "https://api.example.com/incoming-payments?wallet-address=https://api.example.com/alice",
+            "https://api.example.com?wallet-address=x"
+        })
+        void shouldNotAppendSlashWhenTargetHasPathOrQuery(String value) {
+            var builder = createBuilder().target(value);
+            assertEquals(value, builder.getParameters().get("@target-uri"));
+            assertEquals(URI.create(value), builder.getTarget());
+        }
+
         @Test
         void shouldThrowWhenValueIsNull() {
             var builder = createBuilder();

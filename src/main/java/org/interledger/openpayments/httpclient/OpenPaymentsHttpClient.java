@@ -9,6 +9,7 @@ import org.interledger.openpayments.mapper.OpenPaymentsObjectMapper;
 import org.interledger.openpayments.model.IAuthServer;
 import org.interledger.openpayments.model.IResourceServer;
 import org.interledger.openpayments.model.common.Amount;
+import org.interledger.openpayments.model.common.ApiError;
 import org.interledger.openpayments.model.grant.*;
 import org.interledger.openpayments.model.incomingpayment.IncomingPayment;
 import org.interledger.openpayments.model.incomingpayment.IncomingPaymentsResult;
@@ -608,8 +609,11 @@ public class OpenPaymentsHttpClient implements IOpenPaymentsClient {
          * @return OutgoingPayment object representing the created grant continuation.
          *         This includes details of the outgoing payment request.
          * @throws IllegalArgumentException if any of the input parameters are null or invalid.
+         * @deprecated use {@link #continuation(WalletAddress, Limits, URI, String)} with
+         *             {@link Limits#debit(Amount)}, which returns a {@link PendingGrant}.
          */
         @Override
+        @Deprecated
         public OutgoingPayment continuation(
                 WalletAddress sender,
                 Amount debitAmount,
@@ -619,7 +623,9 @@ public class OpenPaymentsHttpClient implements IOpenPaymentsClient {
             log.debug("grantContinuation: ({},{},{})", sender, debitAmount, returnUrl);
 
             ensureNotNull(debitAmount, "DebitAmount cannot be null");
-            return continuation(sender, Limits.debit(debitAmount), returnUrl, nonce);
+            var pending = this.sendOutgoingGrantRequest(sender, Limits.debit(debitAmount), returnUrl, nonce, OutgoingPayment.class);
+            ensureInteraction(pending.getInteract());
+            return pending;
         }
 
         /**
@@ -630,11 +636,12 @@ public class OpenPaymentsHttpClient implements IOpenPaymentsClient {
          * @param limits    The limits under which outgoing payments can be created, or null for none.
          * @param returnUrl The URL to which the user will be redirected after processing the grant. Must not be null.
          * @param nonce     A unique identifier to prevent replay attacks. Must not be null or empty.
-         * @return OutgoingPayment object containing the interaction and continuation details.
-         * @throws IllegalArgumentException if any of the required input parameters are null or invalid.
+         * @return the pending grant, containing interaction and continuation details.
+         * @throws OpenPaymentsClientException if any of the required input parameters are null or invalid,
+         *         the client uses directed identity, or the server did not return interaction details.
          */
         @Override
-        public OutgoingPayment continuation(
+        public PendingGrant continuation(
                 WalletAddress sender,
                 Limits limits,
                 URI returnUrl,
@@ -642,9 +649,25 @@ public class OpenPaymentsHttpClient implements IOpenPaymentsClient {
         ) {
             log.debug("grantContinuation: ({},{},{})", sender, limits, returnUrl);
 
+            var pending = this.sendOutgoingGrantRequest(sender, limits, returnUrl, nonce, PendingGrant.class);
+            ensureInteraction(pending.getInteract());
+            return pending;
+        }
+
+        /**
+         * Sends an interactive outgoing payment grant request to the sender's authorization server.
+         */
+        private <T> T sendOutgoingGrantRequest(
+                WalletAddress sender,
+                Limits limits,
+                URI returnUrl,
+                String nonce,
+                Class<T> responseType
+        ) {
             ensureNotNull(sender, "PaymentPointer sender cannot be null");
             ensureNotNull(returnUrl, "Return URL cannot be null");
             ensureNotNullOrEmpty(nonce, "Nonce cannot be null or empty");
+            ensureInteractiveClient();
 
             var accessRequest = GrantRequest.outgoing(
                     this.baseClient.clientWallet,
@@ -658,7 +681,33 @@ public class OpenPaymentsHttpClient implements IOpenPaymentsClient {
                     .target(sender.getAuthServer())
                     .getRequest(this.baseClient.options);
 
-            return this.baseClient.send(request, OutgoingPayment.class);
+            return this.baseClient.send(request, responseType);
+        }
+
+        /**
+         * Directed identity ({@code jwk}) can only be used for non-interactive grant requests.
+         */
+        private void ensureInteractiveClient() {
+            var clientWallet = this.baseClient.clientWallet;
+            if (clientWallet != null && clientWallet.getFormat() == Client.Format.DIRECTED_IDENTITY) {
+                throw new OpenPaymentsClientException(
+                        "Directed identity (jwk) can only be used for non-interactive grant requests. "
+                                + "Use a client identified by its wallet address for interactive grants."
+                );
+            }
+        }
+
+        /**
+         * The interactive grant requests expect a "Pending interaction" response. Fails clearly if the
+         * server answered with something else (e.g. an issued grant), instead of returning empty fields.
+         */
+        private static void ensureInteraction(InteractContinue interact) {
+            if (interact == null || interact.getRedirect() == null) {
+                throw new OpenPaymentsClientException(
+                        "The authorization server did not return interaction details (interact.redirect) "
+                                + "for an interactive grant request."
+                );
+            }
         }
 
         /**
@@ -669,7 +718,8 @@ public class OpenPaymentsHttpClient implements IOpenPaymentsClient {
          * @param returnUrl     The URL to which the user will be redirected after the interaction. Must not be null.
          * @param nonce         A unique identifier to prevent replay attacks. Must not be null or empty.
          * @return the pending grant, containing interaction and continuation details.
-         * @throws IllegalArgumentException if any of the input parameters are null or invalid.
+         * @throws OpenPaymentsClientException if any of the input parameters are null or invalid,
+         *         the client uses directed identity, or the server did not return interaction details.
          */
         @Override
         public PendingGrant verifyOwnership(WalletAddress walletAddress, URI returnUrl, String nonce) {
@@ -679,6 +729,7 @@ public class OpenPaymentsHttpClient implements IOpenPaymentsClient {
             ensureNotNullOrEmpty(walletAddress.getAuthServer(), "AuthServer cannot be empty");
             ensureNotNull(returnUrl, "Return URL cannot be null");
             ensureNotNullOrEmpty(nonce, "Nonce cannot be null or empty");
+            ensureInteractiveClient();
 
             var subjectRequest = GrantRequest.subject(
                     this.baseClient.clientWallet,
@@ -692,7 +743,9 @@ public class OpenPaymentsHttpClient implements IOpenPaymentsClient {
                     .target(walletAddress.getAuthServer())
                     .getRequest(this.baseClient.options);
 
-            return this.baseClient.send(request, PendingGrant.class);
+            var pending = this.baseClient.send(request, PendingGrant.class);
+            ensureInteraction(pending.getInteract());
+            return pending;
         }
 
         /**
@@ -773,8 +826,11 @@ public class OpenPaymentsHttpClient implements IOpenPaymentsClient {
          * @param interactRef The interaction reference used in the grant creation process. Must not be null or empty.
          * @return The finalized grant object created as a result of the request.
          * @throws IllegalArgumentException If any of the parameters are null or invalid.
+         * @deprecated use {@link #finalize(PendingGrant, String)} with the {@link PendingGrant}
+         *             returned by {@link #continuation(WalletAddress, Limits, URI, String)}.
          */
         @Override
+        @Deprecated
         public Grant finalize(OutgoingPayment outgoingPayment, String interactRef) {
             log.debug("grantFinalize: ({},{})", outgoingPayment, interactRef);
 
@@ -797,8 +853,8 @@ public class OpenPaymentsHttpClient implements IOpenPaymentsClient {
          * is not null before proceeding, and uses a signature request to securely perform the operation.
          *
          * @param grant The Grant object representing the access to be canceled. This object
-         *              must not be null and should contain the required URI and access token
-         *              information for the cancellation.
+         *              must not be null and must contain the {@code continue} URI and
+         *              continuation access token, which authorize the cancellation.
          */
         @Override
         public void cancel(Grant grant) {
@@ -809,7 +865,7 @@ public class OpenPaymentsHttpClient implements IOpenPaymentsClient {
             var request = new SignatureRequestBuilder(this.baseClient.privateKey, this.baseClient.keyId, this.baseClient.mapper)
                     .DELETE()
                     .target(grant.getAccessContinue().getUri())
-                    .accessToken(this.baseClient.extractAccessToken(grant))
+                    .accessToken(this.baseClient.extractContinueAccessToken(grant))
                     .getRequest(this.baseClient.options);
 
             this.baseClient.send(request);
@@ -970,9 +1026,31 @@ public class OpenPaymentsHttpClient implements IOpenPaymentsClient {
             String privateKeyPem,
             String keyId
     ) {
+        return defaultClient(new Client(clientAddress), privateKeyPem, keyId);
+    }
+
+    /**
+     * Creates a default instance of the IOpenPaymentsClient for the given client identification.
+     *
+     * <p>Use this to choose how the client identifies itself in grant requests, e.g.
+     * {@code Client.walletAddressString(uri)} for authorization servers that only accept the
+     * (deprecated) plain string form, or {@code Client.directedIdentity(jwk)} for non-interactive
+     * grants without exposing a wallet address.
+     *
+     * @param client the client identification sent in grant requests
+     * @param privateKeyPem the private key in PEM format used for signing requests
+     * @param keyId the identifier for the key used during cryptographic operations
+     * @return an instance of IOpenPaymentsClient, ready for use in Open Payments operations
+     */
+    public static IOpenPaymentsClient defaultClient(
+            Client client,
+            String privateKeyPem,
+            String keyId
+    ) {
+        ensureNotNull(client, "Client cannot be null");
         var pvtKey = getPrivateKeyFromPem(privateKeyPem);
         return new OpenPaymentsHttpClient(
-                new Client(clientAddress),
+                client,
                 pvtKey,
                 keyId,
                 OpenPaymentsClientOptions.DEFAULT,
@@ -1016,6 +1094,7 @@ public class OpenPaymentsHttpClient implements IOpenPaymentsClient {
     /**
      * Sends an HTTP request using the configured HTTP client and processes the response.
      * Logs the outgoing request before sending and throws an exception if the response status code is not 204.
+     * For error responses, the error body is read and included in the exception, as in {@link #send(HttpRequest, Class)}.
      *
      * @param request the {@code HttpRequest} to be sent using the HTTP client.
      * @throws OpenPaymentsAPIException if the response status code is not 204.
@@ -1024,7 +1103,12 @@ public class OpenPaymentsHttpClient implements IOpenPaymentsClient {
     public void send(HttpRequest request) {
         try {
             this.httpLogger.logRequest(request);
-            HttpResponse<Void> response = this.client.send(request, HttpResponse.BodyHandlers.discarding());
+            HttpResponse<String> response = this.client.send(request, HttpResponse.BodyHandlers.ofString());
+            this.httpLogger.logResponse(response);
+
+            if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                this.handleHttpError(response);
+            }
 
             if (response.statusCode() != 204) {
                 throw new OpenPaymentsAPIException(
@@ -1074,12 +1158,26 @@ public class OpenPaymentsHttpClient implements IOpenPaymentsClient {
      * Handles HTTP error responses by logging the error details and throwing an exception.
      * Differentiates between client errors (4xx), server errors (5xx), and other non-2xx status codes,
      * creating a server-side exception with appropriate information.
+     *
+     * <p>When the body is not an Open Payments error (e.g. a framework 404 or an empty body),
+     * an {@link OpenPaymentsAPIException} is still thrown with the HTTP status code and the raw body.
+     *
      * @param response the HTTP response containing the error status code and body
      * @throws IOException if there is an issue processing the HTTP response
      */
     private void handleHttpError(HttpResponse<String> response) throws IOException {
         int statusCode = response.statusCode();
-        var error = mapper.readError(response.body(), statusCode);
+        ApiError error;
+        try {
+            error = mapper.readError(response.body(), statusCode);
+        } catch (OpenPaymentsClientException parseFailure) {
+            // Not an Open Payments error body: keep the HTTP status, the raw body is attached below.
+            error = new ApiError();
+        }
+        if (error == null) error = new ApiError();
+        if (isNullOrEmpty(error.description)) {
+            error.description = isNullOrEmpty(response.body()) ? null : response.body();
+        }
 
         if (statusCode >= 400 && statusCode < 500) {
             // 4xx - Client errors (bad request, unauthorized, forbidden, not found, etc.)
@@ -1127,6 +1225,22 @@ public class OpenPaymentsHttpClient implements IOpenPaymentsClient {
         ensureNotNull(grant.getAccess(), "AccessGrant.access cannot be null");
         ensureNotNull(grant.getAccess().getToken(), "AccessGrant.access.token cannot be null");
         return grant.getAccess().getToken();
+    }
+
+    /**
+     * Extracts the continuation access token from a grant's {@code continue} object.
+     * Continuation requests ({@code /continue/{id}}) MUST use this token, not the resource access token.
+     *
+     * @param grant the grant containing the continue access
+     * @return the continuation access token string
+     * @throws OpenPaymentsClientException if grant, continue, access or token is null
+     */
+    private String extractContinueAccessToken(Grant grant) {
+        ensureNotNull(grant, "Grant cannot be null");
+        ensureNotNull(grant.getAccessContinue(), "Grant.continue cannot be null");
+        ensureNotNull(grant.getAccessContinue().getAccess(), "Grant.continue.access_token cannot be null");
+        ensureNotNull(grant.getAccessContinue().getAccess().getToken(), "Grant.continue.access_token.value cannot be null");
+        return grant.getAccessContinue().getAccess().getToken();
     }
 
     /**

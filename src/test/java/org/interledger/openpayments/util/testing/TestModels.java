@@ -69,7 +69,10 @@ public final class TestModels {
         accessContinue.setAccess(accessToken);
         outgoingPayment.setPaymentContinue(accessContinue);
         outgoingPayment.setToken("token");
-        outgoingPayment.setInteract(new InteractContinue());
+        var interact = new InteractContinue();
+        interact.setRedirect(URI.create(AUTH_URL + "/interact/1"));
+        interact.setToken("finish");
+        outgoingPayment.setInteract(interact);
         return outgoingPayment;
     }
 

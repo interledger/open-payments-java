@@ -303,6 +303,21 @@ public class GrantModelSerializationTest {
         }
 
         @Test
+        @SuppressWarnings("deprecation")
+        void shouldReadLegacyReceivedAmountAndWriteReceiveAmount() throws Exception {
+            var payment = MAPPER.readValue(
+                "{\"receivedAmount\":{\"value\":\"100\",\"assetCode\":\"USD\",\"assetScale\":2}}",
+                OutgoingPayment.class);
+
+            assertEquals("100", payment.getReceiveAmount().getValue());
+            assertEquals(payment.getReceiveAmount(), payment.getReceivedAmount());
+
+            var json = toJson(payment);
+            assertTrue(json.has("receiveAmount"));
+            assertFalse(json.has("receivedAmount"));
+        }
+
+        @Test
         void shouldReadOutgoingPaymentWithSpentAmounts() throws Exception {
             var json = "{\"id\":\"https://ilp.interledger-test.dev/outgoing-payments/8c68d3cc\","
                 + "\"walletAddress\":\"https://ilp.interledger-test.dev/alice/\",\"failed\":false,"
@@ -316,7 +331,7 @@ public class GrantModelSerializationTest {
 
             var payment = MAPPER.readValue(json, OutgoingPayment.class);
 
-            assertEquals("2500", payment.getReceivedAmount().getValue());
+            assertEquals("2500", payment.getReceiveAmount().getValue());
             assertEquals("2600", payment.getGrantSpentDebitAmount().getValue());
             assertNull(payment.getGrantSpentReceiveAmount());
             assertEquals("APlusVideo subscription", payment.getMetadata().get("description"));

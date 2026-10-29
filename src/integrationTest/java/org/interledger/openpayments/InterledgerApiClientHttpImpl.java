@@ -6,6 +6,7 @@ import org.interledger.openpayments.httpclient.OpenPaymentsHttpClient;
 import org.interledger.openpayments.model.common.Amount;
 import org.interledger.openpayments.model.grant.CardAuthorization;
 import org.interledger.openpayments.model.grant.Grant;
+import org.interledger.openpayments.model.grant.Limits;
 import org.interledger.openpayments.model.grant.PinWorkingKey;
 import org.interledger.openpayments.model.key.Ed25519PublicKey;
 import org.junit.jupiter.api.AfterEach;
@@ -357,7 +358,7 @@ class InterledgerApiClientHttpImpl {
         // Create outing payment from quote:
         var opContinueInteract = this.client.auth().grant().continuation(
             senderWallet,
-            quote.getDebitAmount(),
+            Limits.debit(quote.getDebitAmount()),
             URI.create(urlToOpen),
             "test"
         );
@@ -483,8 +484,7 @@ class InterledgerApiClientHttpImpl {
         // Create outing payment from quote:
         var opContinueInteract = this.client.auth().grant().continuation(
             senderWallet,
-            incomingPayment.getIncomingAmount(),
-            //quote.getDebitAmount(),
+            Limits.debit(incomingPayment.getIncomingAmount()),
             URI.create(urlToOpen),
             "test"
         );

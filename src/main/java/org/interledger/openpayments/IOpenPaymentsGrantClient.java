@@ -63,7 +63,10 @@ public interface IOpenPaymentsGrantClient {
      *         grant. This includes the continuation information, optional user
      *         interaction details, or an access token based on the authorization
      *         flow.
+     * @deprecated use {@link #continuation(WalletAddress, Limits, URI, String)} with
+     *             {@link Limits#debit(Amount)}, which returns a {@link PendingGrant}.
      */
+    @Deprecated
     OutgoingPayment continuation(
             WalletAddress sender,
             Amount debitAmount,
@@ -85,9 +88,12 @@ public interface IOpenPaymentsGrantClient {
      * @param limits    the limits under which outgoing payments can be created, or null for none
      * @param returnUrl the URI to which the user will be redirected after the interaction
      * @param nonce     a unique value used to secure the interaction callback
-     * @return an OutgoingPayment containing the interaction and continuation details
+     * @return the pending grant, containing interaction and continuation details; continue it with
+     *         {@link #finalize(PendingGrant, String)}
+     * @throws org.interledger.openpayments.exception.OpenPaymentsClientException if the client uses
+     *         directed identity, or the server did not return interaction details
      */
-    OutgoingPayment continuation(
+    PendingGrant continuation(
             WalletAddress sender,
             Limits limits,
             URI returnUrl,
@@ -106,6 +112,8 @@ public interface IOpenPaymentsGrantClient {
      * @param returnUrl     the URI to which the user will be redirected after the interaction
      * @param nonce         a unique value used to secure the interaction callback
      * @return the pending grant, containing interaction and continuation details
+     * @throws org.interledger.openpayments.exception.OpenPaymentsClientException if the client uses
+     *         directed identity, or the server did not return interaction details
      */
     PendingGrant verifyOwnership(WalletAddress walletAddress, URI returnUrl, String nonce);
 
@@ -151,7 +159,10 @@ public interface IOpenPaymentsGrantClient {
      *                    preceding steps of the authorization process.
      * @return a Grant object representing the finalized access credentials, including
      *         the access token and any continuation details for the outgoing payment.
+     * @deprecated use {@link #finalize(PendingGrant, String)} with the {@link PendingGrant}
+     *             returned by {@link #continuation(WalletAddress, Limits, URI, String)}.
      */
+    @Deprecated
     Grant finalize(OutgoingPayment outgoingPayment, String interactRef);
 
     /**

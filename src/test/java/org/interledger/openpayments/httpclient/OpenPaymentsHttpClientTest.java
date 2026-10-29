@@ -7,12 +7,15 @@ import org.interledger.openpayments.exception.OpenPaymentsAPIException;
 import org.interledger.openpayments.exception.OpenPaymentsClientException;
 import org.interledger.openpayments.mapper.OpenPaymentsObjectMapper;
 import org.interledger.openpayments.model.common.ApiError;
+import org.interledger.openpayments.model.grant.AccessContinue;
+import org.interledger.openpayments.model.grant.AccessToken;
 import org.interledger.openpayments.model.grant.CardAuthorization;
 import org.interledger.openpayments.model.grant.Client;
 import org.interledger.openpayments.model.grant.Grant;
 import org.interledger.openpayments.model.grant.Limits;
 import org.interledger.openpayments.model.incomingpayment.IncomingPayment;
 import org.interledger.openpayments.model.key.Ed25519Keys;
+import org.interledger.openpayments.model.key.Ed25519PublicKey;
 import org.interledger.openpayments.model.outgoingpayment.OutgoingPayment;
 import org.interledger.openpayments.model.payment.Payment;
 import org.interledger.openpayments.model.quote.Quote;
@@ -52,6 +55,7 @@ import static org.interledger.openpayments.util.testing.TestResponse.createRespo
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -213,6 +217,7 @@ public class OpenPaymentsHttpClientTest {
             verify(httpClient).send(requestCaptor.capture(), eq(HttpResponse.BodyHandlers.ofString()));
         }
 
+        @SuppressWarnings("deprecation")
         static Stream<Arguments> allClientMethods() {
             return Stream.of(
                 arg(
@@ -262,7 +267,7 @@ public class OpenPaymentsHttpClientTest {
                             Limits.debit(quote.getDebitAmount(), "R3/2025-05-20T13:00:00Z/P1M"),
                             URI.create("https://app/cb"),
                             "nonce123"),
-                    outgoingPayment),
+                    createPendingGrant()),
                 arg(
                     "createGrantVerifyOwnership",
                     () -> opClient.auth().grant().verifyOwnership(walletAddress, URI.create("https://app/cb"), "nonce123"),
@@ -336,7 +341,7 @@ public class OpenPaymentsHttpClientTest {
                 () -> opClient.payment().getGrantSpentAmounts(walletAddress, createGrantForOutgoingPayment()));
 
             assertEquals("GET", request.method());
-            assertEquals(URI.create(TEST_URL + "outgoing-payment-grant/"), request.uri());
+            assertEquals(URI.create(TEST_URL + "outgoing-payment-grant"), request.uri());
             assertEquals("GNAP token", request.headers().firstValue("Authorization").orElseThrow());
         }
 
@@ -346,7 +351,7 @@ public class OpenPaymentsHttpClientTest {
                 () -> opClient.auth().grant().verifyOwnership(walletAddress, URI.create("https://app/cb"), "nonce123"));
 
             assertEquals("POST", request.method());
-            assertEquals(URI.create(walletAddress.getAuthServer() + "/"), request.uri());
+            assertEquals(URI.create(walletAddress.getAuthServer()), request.uri());
 
             var json = OpenPaymentsObjectMapper.get().readTree(body(request));
             assertFalse(json.has("access_token"));
@@ -363,7 +368,7 @@ public class OpenPaymentsHttpClientTest {
                 () -> opClient.auth().grant().finalize(pendingGrant, "interact-123"));
 
             assertEquals("POST", request.method());
-            assertEquals(URI.create(pendingGrant.getGrantContinue().getUri() + "/"), request.uri());
+            assertEquals(pendingGrant.getGrantContinue().getUri(), request.uri());
             assertEquals("GNAP continue-token", request.headers().firstValue("Authorization").orElseThrow());
             assertEquals("interact-123",
                 OpenPaymentsObjectMapper.get().readTree(body(request)).get("interact_ref").asText());
@@ -371,7 +376,7 @@ public class OpenPaymentsHttpClientTest {
 
         @Test
         void shouldRequestOutgoingGrantWithInterval() throws Exception {
-            var request = captureRequest(outgoingPayment,
+            var request = captureRequest(createPendingGrant(),
                 () -> opClient.auth().grant().continuation(
                     walletAddress,
                     Limits.debit(quote.getDebitAmount(), "R3/2025-05-20T13:00:00Z/P1M"),
@@ -399,6 +404,118 @@ public class OpenPaymentsHttpClientTest {
             assertEquals(quote.getDebitAmount().getValue(), item.at("/limits/receiveAmount/value").asText());
             assertEquals("9F26089F27019F1002", item.at("/cardAuthorization/tlvData").asText());
             assertEquals("request-1", item.at("/cardAuthorization/requestId").asText());
+        }
+    }
+
+    @DisplayName("PR review fixes – continuation token, error bodies, interactive grant checks")
+    @Nested
+    class ReviewFixes {
+        private Grant grantWithContinuation() {
+            var grant = createGrantForOutgoingPayment();
+            var accessContinue = new AccessContinue();
+            accessContinue.setUri(URI.create(TEST_URL + "auth/continue/1"));
+            var continueToken = new AccessToken();
+            continueToken.setToken("continue-token");
+            accessContinue.setAccess(continueToken);
+            grant.setAccessContinue(accessContinue);
+            return grant;
+        }
+
+        private Ed25519PublicKey validJwk() {
+            var jwk = new Ed25519PublicKey();
+            jwk.setKid("key-1");
+            jwk.setAlg("EdDSA");
+            jwk.setKty("OKP");
+            jwk.setCrv("Ed25519");
+            jwk.setX("oy0L_vTygNE4IogRyn_F5GmHXdqYVjIXkWs2jky7zsI");
+            return jwk;
+        }
+
+        @Test
+        void shouldCancelGrantWithContinuationToken() throws Exception {
+            var requestCaptor = ArgumentCaptor.forClass(HttpRequest.class);
+            when(httpClient.send(any(HttpRequest.class), eq(HttpResponse.BodyHandlers.ofString())))
+                .thenReturn(createResponse("", 204));
+
+            var grant = grantWithContinuation();
+            opClient.auth().grant().cancel(grant);
+
+            verify(httpClient).send(requestCaptor.capture(), eq(HttpResponse.BodyHandlers.ofString()));
+            var request = requestCaptor.getValue();
+            assertEquals("DELETE", request.method());
+            assertEquals(grant.getAccessContinue().getUri(), request.uri());
+            assertEquals("GNAP continue-token", request.headers().firstValue("Authorization").orElseThrow());
+        }
+
+        @Test
+        void shouldIncludeErrorBodyWhenNoContentRequestFails() throws Exception {
+            when(httpClient.send(any(HttpRequest.class), eq(HttpResponse.BodyHandlers.ofString())))
+                .thenReturn(createApiErrorResponse(401, "invalid continuation"));
+
+            var exception = assertThrows(OpenPaymentsAPIException.class,
+                () -> opClient.auth().grant().cancel(grantWithContinuation()));
+
+            assertEquals(401, exception.getCode());
+            assertTrue(exception.getMessage().contains("invalid continuation"));
+        }
+
+        @Test
+        void shouldKeepHttpStatusWhenErrorBodyIsNotAnOpenPaymentsError() throws Exception {
+            var body = "{\"error\":\"Not Found\",\"message\":\"Route POST:/incoming-payments not found\",\"statusCode\":404}";
+            when(httpClient.send(any(HttpRequest.class), eq(HttpResponse.BodyHandlers.ofString())))
+                .thenReturn(createResponse(body, 404));
+
+            var exception = assertThrows(OpenPaymentsAPIException.class,
+                () -> opClient.payment().createIncoming(walletAddress, grantForIncomingPayment, BigDecimal.ONE));
+
+            assertEquals(404, exception.getCode());
+            assertEquals(body, exception.getResponseBody());
+            assertTrue(exception.getMessage().contains("Route POST:/incoming-payments not found"));
+        }
+
+        @Test
+        void shouldKeepHttpStatusWhenErrorBodyIsEmpty() throws Exception {
+            when(httpClient.send(any(HttpRequest.class), eq(HttpResponse.BodyHandlers.ofString())))
+                .thenReturn(createResponse("", 503));
+
+            var exception = assertThrows(OpenPaymentsAPIException.class,
+                () -> opClient.payment().getGrantSpentAmounts(walletAddress, createGrantForOutgoingPayment()));
+
+            assertEquals(503, exception.getCode());
+        }
+
+        @Test
+        void shouldRejectInteractiveGrantsForDirectedIdentity() throws Exception {
+            var directedClient = new OpenPaymentsHttpClient(
+                Client.directedIdentity(validJwk()),
+                generatePrivateKey(),
+                "key-1",
+                OpenPaymentsClientOptions.DEFAULT,
+                httpClient,
+                httpLogger);
+            var returnUrl = URI.create("https://app/cb");
+
+            assertThrows(OpenPaymentsClientException.class, () -> directedClient.auth().grant().continuation(
+                walletAddress, Limits.debit(quote.getDebitAmount()), returnUrl, "nonce123"));
+            assertThrows(OpenPaymentsClientException.class,
+                () -> directedClient.auth().grant().verifyOwnership(walletAddress, returnUrl, "nonce123"));
+            verify(httpClient, never()).send(any(HttpRequest.class), any());
+        }
+
+        @Test
+        void shouldFailClearlyWhenServerReturnsNoInteraction() throws Exception {
+            when(httpClient.send(any(HttpRequest.class), eq(HttpResponse.BodyHandlers.ofString())))
+                .thenReturn(createResponse(createGrantForSubject()));
+
+            var exception = assertThrows(OpenPaymentsClientException.class,
+                () -> opClient.auth().grant().verifyOwnership(walletAddress, URI.create("https://app/cb"), "nonce123"));
+            assertTrue(exception.getMessage().contains("interact.redirect"));
+        }
+
+        @Test
+        void shouldRejectNullClientForDefaultClient() {
+            assertThrows(OpenPaymentsClientException.class,
+                () -> OpenPaymentsHttpClient.defaultClient((Client) null, "pem", "key-1"));
         }
     }
 
