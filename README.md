@@ -3,10 +3,6 @@
 [![Java](https://img.shields.io/badge/Java-21+-orange.svg)](https://openjdk.org/)
 [![GitHub Issues](https://img.shields.io/github/issues/interledger/open-payments/interledger.svg)](https://github.com/interledger/open-payments-java/issues)
 
-<p align="center">
-  <img src="https://raw.githubusercontent.com/interledger/open-payments/main/docs/public/img/logo.svg" width="700" alt="Open Payments">
-</p>
-
 ## What is Open Payments?
 
 Open Payments is an open API standard that can be implemented by account servicing entities (e.g. banks, digital wallet providers, and mobile money providers) to facilitate interoperability in the setup and completion of payments for different use cases including:
